@@ -529,7 +529,6 @@ void MainWindow::HideToTray() { AppWindow().Hide(); }
 
 void MainWindow::RefreshStatus() {
     StatusText().Text(L"\u6B63\u5728\u8FDE\u63A5\u5230\u670D\u52A1");
-    SetStatusIllustration(L"service-connecting.png");
     std::wstring error;
     const auto response = ipc_.Call(
         {kProtocolVersion, MessageType::GetStatus, L"ui-status", "{}"}, 1500,

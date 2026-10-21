@@ -26,6 +26,17 @@ if ($cpp -notmatch 'SetStatusIllustration') {
     throw 'MainWindow must update the status illustration from service state.'
 }
 
+$refreshMethod = [regex]::Match(
+    $cpp,
+    '(?ms)^void MainWindow::RefreshStatus\(\) \{\r?\n(?<body>.*?)^\}')
+if (-not $refreshMethod.Success) {
+    throw 'MainWindow::RefreshStatus must remain available for refresh behavior checks.'
+}
+if ($refreshMethod.Groups['body'].Value -match
+    'SetStatusIllustration\s*\(\s*L"service-connecting\.png"') {
+    throw 'A status refresh must keep the current illustration until the fresh response arrives.'
+}
+
 foreach ($asset in @(
         'service-disconnected.png',
         'service-connecting.png',
