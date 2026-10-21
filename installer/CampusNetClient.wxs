@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX v4 source for the unpackaged deployment. The MSI is only a GUI
+  installer; the installed product exposes no public command-line mode.
+
+  Build variables:
+    ClientBinDir  directory containing CampusNetClient.exe and its runtime
+    ServiceBinDir directory containing CampusNetService.exe
+    ProductVersion a four-part MSI-compatible version
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="CampusNetClient"
+           Manufacturer="Aetheria"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="{9B7E1B47-0F50-4F63-A1FC-6A3B8E2D5A17}">
+    <MajorUpgrade DowngradeErrorMessage="A newer CampusNetClient is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="MainFeature" Title="CampusNetClient" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ClientPayload" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CampusNetClient">
+        <Directory Id="LOGSFOLDER" Name="logs" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="AETHERIA_DATA" Name="Aetheria">
+        <Directory Id="CAMPUSNET_DATA" Name="CampusNetClient" />
+      </Directory>
+    </StandardDirectory>
+
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="ClientExecutableComponent" Guid="{3E4B1B61-0A4D-4B01-9A93-BA9FC72CC801}">
+        <File Id="CampusNetClientExe" Source="$(var.ClientBinDir)\CampusNetClient.exe" />
+      </Component>
+      <Component Id="ServiceExecutableComponent" Guid="{B61E1D2C-4E8C-4DB8-9C83-DC80C6F2B1F0}">
+        <File Id="CampusNetServiceExe" Source="$(var.ServiceBinDir)\CampusNetService.exe" KeyPath="yes" />
+        <ServiceInstall Id="CampusNetServiceInstall"
+                        Name="CampusNetService"
+                        DisplayName="CampusNetService"
+                        Description="CampusNetClient HTTP login service"
+                        Type="ownProcess"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal" />
+        <ServiceControl Id="CampusNetServiceControl"
+                        Name="CampusNetService"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <Component Id="DataDirectoryComponent" Directory="CAMPUSNET_DATA" Guid="{F7B8E67A-8AF6-4F54-9EB3-6DD6B8D9E2EE}">
+        <CreateFolder />
+      </Component>
+      <Component Id="LogDirectoryComponent" Directory="LOGSFOLDER" Guid="{2BA6F9CC-9AE0-4876-8B1E-7F0DC67CE4D6}">
+        <CreateFolder />
+        <RemoveFolder Id="RemoveLogsFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
+

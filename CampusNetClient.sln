@@ -1,0 +1,36 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CampusNetShared", "shared\CampusNetShared.vcxproj", "{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CampusNetClient", "client\CampusNetClient.vcxproj", "{D7C9C0B3-469D-4B6E-9E83-CE9C0A03A1CB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CampusNetService", "service\CampusNetService.vcxproj", "{BA57EDAD-C59C-41C2-8E2D-A7B3D1D0A4D4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CampusNetTests", "tests\CampusNetTests.vcxproj", "{B9D34A2F-6DCE-4C9A-8C6D-5FC4DA4E4A02}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}.Debug|x64.ActiveCfg = Debug|x64
+		{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}.Debug|x64.Build.0 = Debug|x64
+		{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}.Release|x64.ActiveCfg = Release|x64
+		{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}.Release|x64.Build.0 = Release|x64
+		{D7C9C0B3-469D-4B6E-9E83-CE9C0A03A1CB}.Debug|x64.ActiveCfg = Debug|x64
+		{D7C9C0B3-469D-4B6E-9E83-CE9C0A03A1CB}.Release|x64.ActiveCfg = Release|x64
+		{BA57EDAD-C59C-41C2-8E2D-A7B3D1D0A4D4}.Debug|x64.ActiveCfg = Debug|x64
+		{BA57EDAD-C59C-41C2-8E2D-A7B3D1D0A4D4}.Release|x64.ActiveCfg = Release|x64
+		{B9D34A2F-6DCE-4C9A-8C6D-5FC4DA4E4A02}.Debug|x64.ActiveCfg = Debug|x64
+		{B9D34A2F-6DCE-4C9A-8C6D-5FC4DA4E4A02}.Debug|x64.Build.0 = Debug|x64
+		{B9D34A2F-6DCE-4C9A-8C6D-5FC4DA4E4A02}.Release|x64.ActiveCfg = Release|x64
+		{B9D34A2F-6DCE-4C9A-8C6D-5FC4DA4E4A02}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

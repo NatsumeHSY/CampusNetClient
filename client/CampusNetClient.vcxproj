@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{D7C9C0B3-469D-4B6E-9E83-CE9C0A03A1CB}</ProjectGuid><Keyword>Win32Proj</Keyword><RootNamespace>CampusNetClient</RootNamespace><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion><WindowsTargetPlatformMinVersion>10.0.22000.0</WindowsTargetPlatformMinVersion><WindowsPackageType>None</WindowsPackageType><WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><WindowsAppSDKAggregatePackage>false</WindowsAppSDKAggregatePackage><CppWinRTProjectLanguage>C++</CppWinRTProjectLanguage><CppWinRTOptimized>true</CppWinRTOptimized><CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge><UseWinUI>true</UseWinUI><AppContainerApplication>false</AppContainerApplication><ApplicationType>Windows Store</ApplicationType><ApplicationTypeRevision>10.0</ApplicationTypeRevision><AppxPackage>false</AppxPackage><MinimalCoreWin>true</MinimalCoreWin><DesktopCompatible>true</DesktopCompatible><UseXamlCompilerExecutable>false</UseXamlCompilerExecutable><WebView2UseWinRT>true</WebView2UseWinRT></PropertyGroup>
+  <PropertyGroup Label="WindowsAppSDKVersions"><WindowsAppSDKVersion>2.0.1</WindowsAppSDKVersion><WindowsAppSDKWinUIVersion>2.0.12</WindowsAppSDKWinUIVersion><WindowsAppSDKFoundationVersion>2.0.20</WindowsAppSDKFoundationVersion><WindowsAppSDKBaseVersion>2.0.3</WindowsAppSDKBaseVersion><WindowsAppSDKInteractiveExperiencesVersion>2.0.12</WindowsAppSDKInteractiveExperiencesVersion><WindowsAppSDKDWriteVersion>2.0.26041403</WindowsAppSDKDWriteVersion><CppWinRTVersion>2.0.250303.1</CppWinRTVersion><WebView2Version>1.0.3719.77</WebView2Version><NuGetPackageRoot Condition="'$(NuGetPackageRoot)'==''">$(USERPROFILE)\.nuget\packages\</NuGetPackageRoot><XamlCompilerPropsAndTargetsDirectory>$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\build\</XamlCompilerPropsAndTargetsDirectory></PropertyGroup>
+  <Import Project="$(NuGetPackageRoot)microsoft.windows.cppwinrt\$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windows.cppwinrt\$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.props')" />
+   <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.dwrite\$(WindowsAppSDKDWriteVersion)\build\Microsoft.WindowsAppSDK.DWrite.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.dwrite\$(WindowsAppSDKDWriteVersion)\build\Microsoft.WindowsAppSDK.DWrite.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\Microsoft.WindowsAppSDK.Foundation.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\Microsoft.WindowsAppSDK.Foundation.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\native\WindowsAppSDK-Nuget-Native.WinRt.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\native\WindowsAppSDK-Nuget-Native.WinRt.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props')" />
+   <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.Runtime.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.Runtime.props')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.base\$(WindowsAppSDKBaseVersion)\build\native\Microsoft.WindowsAppSDK.Base.props" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.base\$(WindowsAppSDKBaseVersion)\build\native\Microsoft.WindowsAppSDK.Base.props')" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" /><ImportGroup Label="ExtensionSettings" /><ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <PropertyGroup Label="UserMacros" /><PropertyGroup><CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot><OutDir>$(CampusNetBuildRoot)\bin\$(Configuration)\</OutDir><IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir></PropertyGroup>
+  <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><PreprocessorDefinitions>CAMPUSNET_WEBVIEW2_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalOptions>/FS /utf-8 %(AdditionalOptions)</AdditionalOptions><AdditionalIncludeDirectories>$(GeneratedFilesDir);$(IntDir);$(ProjectDir)..\shared;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem></Link></ItemDefinitionGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
+    <ResourceCompile Include="CampusNetClient.rc" />
+    <Content Include="assets\status\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><XamlRuntime>WinUI</XamlRuntime></ApplicationDefinition>
+    <Page Include="MainWindow.xaml"><Generator>MSBuild:Compile</Generator><XamlRuntime>WinUI</XamlRuntime></Page>
+     <ClCompile Include="pch.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
+     <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="MainWindow.xaml.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="TrayIcon.cpp" />
+    <ClCompile Include="StartupMode.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+     <ClCompile Include="ClientIpc.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+     <ClCompile Include="ClientViewModel.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+     <ClCompile Include="ServiceManager.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+     <ClCompile Include="WebViewLogin.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+     <ClCompile Include="UserSessionLauncher.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="MainWindow.xaml.h" />
+    <ClInclude Include="TrayIcon.h" />
+    <ClInclude Include="StartupMode.h" />
+    <ClInclude Include="ClientIpc.h" />
+    <ClInclude Include="ClientViewModel.h" />
+    <ClInclude Include="ServiceManager.h" />
+    <ClInclude Include="WebViewLogin.h" />
+    <ClInclude Include="UserSessionLauncher.h" />
+    <ClInclude Include="pch.h" />
+    <Midl Include="Project.idl" />
+  </ItemGroup>
+  <ItemGroup><ProjectReference Include="..\shared\CampusNetShared.vcxproj"><Project>{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}</Project></ProjectReference></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\build\native\Microsoft.Web.WebView2.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windows.cppwinrt\$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windows.cppwinrt\$(CppWinRTVersion)\build\native\Microsoft.Windows.CppWinRT.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\build\native\Microsoft.WindowsAppSDK.WinUI.targets')" />
+   <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.dwrite\$(WindowsAppSDKDWriteVersion)\build\Microsoft.WindowsAppSDK.DWrite.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.dwrite\$(WindowsAppSDKDWriteVersion)\build\Microsoft.WindowsAppSDK.DWrite.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\native\Microsoft.WindowsAppSDK.Foundation.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\build\native\Microsoft.WindowsAppSDK.Foundation.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets')" />
+   <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.Runtime.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.runtime\$(WindowsAppSDKVersion)\build\native\Microsoft.WindowsAppSDK.Runtime.targets')" />
+  <Import Project="$(NuGetPackageRoot)microsoft.windowsappsdk.base\$(WindowsAppSDKBaseVersion)\build\native\Microsoft.WindowsAppSDK.Base.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.windowsappsdk.base\$(WindowsAppSDKBaseVersion)\build\native\Microsoft.WindowsAppSDK.Base.targets')" />
+  <ImportGroup Label="ExtensionTargets" />
+
+  <Target Name="CampusNetCompileXamlBeforeCpp"
+          BeforeTargets="ClCompile"
+          DependsOnTargets="MarkupCompilePass1;MarkupCompilePass2"
+          Condition="'@(ApplicationDefinition)' != '' Or '@(Page)' != ''" />
+
+  <!-- The WebView2 native targets provide the import library but, with the
+       current unpackaged WinUI/MSBuild import order, do not copy the loader
+       into this custom OutDir. Keep the x64 loader beside the x64 executable. -->
+  <Target Name="CampusNetCopyWebView2Loader" AfterTargets="Build">
+    <Copy SourceFiles="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\build\native\x64\WebView2Loader.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Keep the service beside the client for green-folder runs. -->
+  <Target Name="CampusNetCopyServiceBinary" AfterTargets="Build">
+    <Copy SourceFiles="$(SolutionDir)..\build\$(Configuration)\CampusNetService.exe"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(SolutionDir)..\build\$(Configuration)\CampusNetService.exe')" />
+  </Target>
+
+  <!-- WindowsAppSDKSelfContained enables the native auto-initializer, but
+       these unpackaged C++ imports do not copy the framework runtime assets
+       into the custom output directory. Preserve the package subdirectories
+       so the self-contained WinUI runtime can load its language resources. -->
+  <ItemGroup>
+    <CampusNetWindowsAppSdkRuntime Include="$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\runtimes-framework\win-x64\native\**\*.*" />
+    <CampusNetWindowsAppSdkRuntime Include="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\runtimes-framework\win-x64\native\**\*.*" />
+    <CampusNetWindowsAppSdkRuntime Include="$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\runtimes-framework\win-x64\native\**\*.*" />
+    <!-- The Windows App SDK runtime MSIX carries these two root-level resources;
+         they are not exposed by the component package native folders but are
+         required by unpackaged WinUI startup. -->
+    <CampusNetWindowsAppSdkRuntime Include="$(ProjectDir)..\runtime\win-x64\Microsoft.WindowsAppRuntime.Insights.Resource.dll" />
+    <CampusNetWindowsAppSdkRuntime Include="$(ProjectDir)..\runtime\win-x64\resources.pri" />
+  </ItemGroup>
+  <Target Name="CampusNetCopyWindowsAppSdkRuntime" AfterTargets="Build">
+    <Copy SourceFiles="@(CampusNetWindowsAppSdkRuntime)"
+          DestinationFiles="@(CampusNetWindowsAppSdkRuntime->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    mdmerge receives RelativeDir metadata from the SDK reference items. On
+    machines where the Windows SDK is installed under "Program Files (x86)",
+    MSBuild escapes the parentheses in that metadata as %28/%29. mdmerge does
+    not decode those path segments, so stage only the metadata roots required by
+    the generated XAML provider under the project intermediate directory.
+  -->
+  <Target Name="CampusNetFixMdMergeMetadataDirectories"
+          AfterTargets="GetCppWinRTMdMergeInputs"
+          BeforeTargets="CppWinRTMergeProjectWinMDInputs">
+    <RemoveDir Directories="$(IntDir)MdMergeMetadata" />
+    <MakeDir Directories="$(IntDir)MdMergeMetadata" />
+    <ItemGroup>
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\metadata\Microsoft.UI.Text.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.winui\$(WindowsAppSDKWinUIVersion)\metadata\Microsoft.UI.Xaml.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\metadata\10.0.18362.0\Microsoft.Foundation.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\metadata\10.0.18362.0\Microsoft.Graphics.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.interactiveexperiences\$(WindowsAppSDKInteractiveExperiencesVersion)\metadata\10.0.18362.0\Microsoft.UI.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.windowsappsdk.foundation\$(WindowsAppSDKFoundationVersion)\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd" />
+      <CampusNetMdMergeWinMD Include="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\lib\Microsoft.Web.WebView2.Core.winmd" />
+      <CampusNetMdMergeWinMD Include="$(WindowsSDK_MetadataFoundationPath)\Windows.Foundation.FoundationContract.winmd" />
+      <CampusNetMdMergeWinMD Include="$(WindowsSDK_MetadataPathVersioned)\Windows.Foundation.UniversalApiContract\19.0.0.0\Windows.Foundation.UniversalApiContract.winmd" />
+    </ItemGroup>
+    <Copy SourceFiles="@(CampusNetMdMergeWinMD)"
+          DestinationFolder="$(IntDir)MdMergeMetadata"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <CppWinRTMdMergeMetadataDirectories Remove="@(CppWinRTMdMergeMetadataDirectories)" />
+      <CppWinRTMdMergeMetadataDirectories Include="$(IntDir)MdMergeMetadata\*.winmd" />
+    </ItemGroup>
+  </Target>
+</Project>

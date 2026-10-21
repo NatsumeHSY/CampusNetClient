@@ -1,0 +1,199 @@
+<Window
+    x:Class="CampusNetClient.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="广航海校园网自动登录">
+    <Grid x:Name="RootGrid"
+          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          Padding="32,24,32,18">
+        <Grid.Resources>
+            <Storyboard x:Key="StatusIndicatorBreathing">
+                <DoubleAnimation Storyboard.TargetName="StatusIndicator"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0.45" To="1"
+                                 Duration="0:0:1.2"
+                                 AutoReverse="True"
+                                 RepeatBehavior="Forever" />
+            </Storyboard>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="广航海校园网自动登录" FontSize="28" FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                       />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,18,0,0"
+                      VerticalAlignment="Stretch"
+                      VerticalContentAlignment="Stretch"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid ColumnSpacing="18" RowSpacing="14"
+                  VerticalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Spacing="14">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="运行状态" FontSize="20"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <Grid>
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse x:Name="StatusIndicator" Grid.Column="0"
+                                                 Width="10" Height="10"
+                                                 Fill="#FFFFB900"
+                                                 Margin="0,4,0,0"
+                                                 VerticalAlignment="Center" />
+                                        <TextBlock x:Name="StatusText" Grid.Column="1"
+                                                   Text="正在连接到服务" FontSize="17"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                    </Grid>
+                                    <StackPanel Spacing="4">
+                                        <TextBlock x:Name="LocalIpText"
+                                                   Text="本机 IPv4：读取中"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock x:Name="LocalMacText"
+                                                   Text="本机 MAC：读取中"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock x:Name="ComputerNameText"
+                                                   Text="计算机名：读取中"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Button Content="立即登录" Click="LoginButton_Click" />
+                                        <Button Content="刷新状态" Click="RefreshButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Canvas Width="180"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False">
+                                    <Image x:Name="StatusIllustration"
+                                           Width="180"
+                                           Height="150"
+                                           Canvas.Top="0"
+                                           Stretch="Uniform" />
+                                </Canvas>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="登录凭据" FontSize="20"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="凭据由服务保存并用于自动登录。"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBox x:Name="UsernameBox" Header="校园网账号"
+                                     PlaceholderText="输入账号" />
+                            <PasswordBox x:Name="PasswordBox" Header="校园网密码"
+                                         PlaceholderText="输入密码" />
+                            <Button Content="保存凭据与设置" Click="SaveButton_Click"
+                                    HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Spacing="14">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="后台行为" FontSize="20"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <ToggleSwitch x:Name="UiAutostartToggle"
+                                          Header="允许服务自动拉起 UI"
+                                          OnContent="开启" OffContent="关闭" />
+                            <InfoBar x:Name="FallbackInfoBar"
+                                     IsOpen="True"
+                                     IsClosable="False"
+                                     Severity="Informational"
+                                     Message="关闭后，服务仍可运行，但 WebView2 自动兜底登录不会启动。" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="20">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Windows 服务" FontSize="20"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                <Border x:Name="ServiceInstallStatusBadge"
+                                        Grid.Column="1"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="9,3"
+                                        VerticalAlignment="Center">
+                                    <TextBlock x:Name="ServiceInstallStatusText"
+                                               Text="检查中"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="ServiceStatusText" Text="服务状态：检查中"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="ServicePathText" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="ServiceFeedbackText" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Grid ColumnSpacing="8" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Button Content="安装服务" Click="InstallServiceButton_Click" />
+                                <Button Grid.Column="1" Content="启动服务"
+                                        Click="StartServiceButton_Click" />
+                                <Button Grid.Row="1" Content="停止服务"
+                                        Click="StopServiceButton_Click" />
+                                <Button Grid.Row="1" Grid.Column="1" Content="卸载服务"
+                                        Click="UninstallServiceButton_Click" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+    </Grid>
+</Window>

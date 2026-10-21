@@ -1,0 +1,22 @@
+.vs/
+**/build/
+**/bin/
+**/obj/
+**/Generated Files/
+**/CMakeFiles/
+cmake-build-*/
+CMakeCache.txt
+*.user
+*.suo
+*.pdb
+*.ilk
+*.iobj
+*.ipdb
+*.obj
+*.tlog/
+*.log
+*.exe
+*.msi
+*.wixpdb
+.ght
+**/.ght
