@@ -11,6 +11,7 @@ int RunHttpPortalClientTests();
 int RunProtocolTests();
 int RunLoginStateTests();
 int RunClientManagementTests();
+int RunLauncherTests();
 void RunWebViewRequestTests();
 int RunEndToEndLocalTests();
 
@@ -50,6 +51,7 @@ int wmain() {
     assert(RunProtocolTests() == 0);
     assert(RunLoginStateTests() == 0);
     assert(RunClientManagementTests() == 0);
+    assert(RunLauncherTests() == 0);
     RunWebViewRequestTests();
     assert(RunEndToEndLocalTests() == 0);
 

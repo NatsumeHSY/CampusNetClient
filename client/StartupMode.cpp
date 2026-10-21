@@ -6,3 +6,7 @@ ClientStartupMode ParseStartupMode(std::wstring_view value) {
                : ClientStartupMode::Interactive;
 }
 
+bool ShouldActivateExistingInstance(ClientStartupMode startupMode) {
+    return startupMode == ClientStartupMode::Interactive;
+}
+

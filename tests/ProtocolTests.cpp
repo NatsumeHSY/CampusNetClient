@@ -58,5 +58,14 @@ int RunProtocolTests() {
     assert(response->requestId == original.requestId);
     assert(response->payload == R"({"ok":true})");
     server.Stop();
+
+    for (int i = 0; i < 128; ++i) {
+        ServiceIpcServer startupRaceServer;
+        assert(startupRaceServer.Start([](const ProtocolMessage& request) {
+            return ProtocolMessage{kProtocolVersion, MessageType::GetStatus,
+                                   request.requestId, R"({"ok":true})"};
+        }));
+        startupRaceServer.Stop();
+    }
     return 0;
 }

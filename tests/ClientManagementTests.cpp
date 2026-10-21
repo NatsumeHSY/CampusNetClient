@@ -1,5 +1,6 @@
 #include "ClientViewModel.h"
 #include "ServiceManager.h"
+#include "SingleInstanceActivation.h"
 #include "StartupMode.h"
 
 #include <cassert>
@@ -32,5 +33,19 @@ int RunClientManagementTests() {
     assert(ParseStartupMode(L"0") == ClientStartupMode::Interactive);
     assert(ParseStartupMode(L"1") == ClientStartupMode::Background);
     assert(ParseStartupMode(L"true") == ClientStartupMode::Background);
+    assert(ShouldActivateExistingInstance(ClientStartupMode::Interactive));
+    assert(!ShouldActivateExistingInstance(ClientStartupMode::Background));
+
+    const std::wstring activationEventName =
+        L"Local\\CampusNetClient.Test.Activate." +
+        std::to_wstring(GetCurrentProcessId()) + L"." +
+        std::to_wstring(GetTickCount64());
+    HANDLE activationEvent =
+        CreateSingleInstanceActivationEvent(activationEventName.c_str());
+    assert(activationEvent != nullptr);
+    assert(SignalSingleInstanceActivation(activationEventName.c_str(), 0));
+    assert(WaitForSingleObject(activationEvent, 0) == WAIT_OBJECT_0);
+    assert(WaitForSingleObject(activationEvent, 0) == WAIT_TIMEOUT);
+    CloseHandle(activationEvent);
     return 0;
 }

@@ -50,7 +50,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;$(ProjectDir)..\launcher;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -64,7 +64,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;$(ProjectDir)..\launcher;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -81,6 +81,7 @@
     <ClCompile Include="ProtocolTests.cpp" />
     <ClCompile Include="LoginStateTests.cpp" />
     <ClCompile Include="ClientManagementTests.cpp" />
+    <ClCompile Include="LauncherTests.cpp" />
     <ClCompile Include="WebViewRequestTests.cpp" />
     <ClCompile Include="EndToEndLocalTests.cpp" />
     <ClCompile Include="..\service\HttpPortalClient.cpp" />
@@ -91,6 +92,8 @@
     <ClCompile Include="..\client\ClientViewModel.cpp" />
     <ClCompile Include="..\client\ServiceManager.cpp" />
     <ClCompile Include="..\client\StartupMode.cpp" />
+    <ClCompile Include="..\client\SingleInstanceActivation.cpp" />
+    <ClCompile Include="..\launcher\LauncherPaths.cpp" />
     <ClCompile Include="..\client\WebViewLogin.cpp" />
     <ClCompile Include="..\client\UserSessionLauncher.cpp" />
   </ItemGroup>

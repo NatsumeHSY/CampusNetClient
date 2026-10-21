@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "App.xaml.h"
+#include "SingleInstanceActivation.h"
 #include "StartupMode.h"
 
 #include <string>
@@ -35,18 +36,25 @@ ClientStartupMode StartupModeFromEnvironment() {
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     winrt::init_apartment(winrt::apartment_type::single_threaded);
 
+    const ClientStartupMode startupMode = StartupModeFromEnvironment();
     const HANDLE singleInstanceMutex = AcquireSingleInstanceMutex();
     if (singleInstanceMutex == nullptr) {
+        if (ShouldActivateExistingInstance(startupMode)) {
+            SignalSingleInstanceActivation();
+        }
         return 0;
     }
 
-    const ClientStartupMode startupMode = StartupModeFromEnvironment();
+    const HANDLE activationEvent = CreateSingleInstanceActivationEvent();
     winrt::Microsoft::UI::Xaml::Application::Start([startupMode](auto&&) {
         // The startup mode is captured below instead of exposed as a public
         // command-line switch. The service is the only caller that sets the
         // environment marker for a hidden UI handoff.
         winrt::make<winrt::CampusNetClient::implementation::App>(startupMode);
     });
+    if (activationEvent != nullptr) {
+        CloseHandle(activationEvent);
+    }
     CloseHandle(singleInstanceMutex);
     return 0;
 }

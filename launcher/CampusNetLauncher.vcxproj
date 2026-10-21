@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2415EAE3-44BE-446A-8C13-65811CF0181E}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>CampusNetLauncher</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot>
+    <CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot>
+    <OutDir>$(CampusNetPackageRoot)\</OutDir>
+    <IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="LauncherMain.cpp" />
+    <ClCompile Include="LauncherPaths.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="launcher.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Launcher.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+
+  <!--
+    Windows App SDK self-contained payload items can be emitted beside the
+    launcher by solution builds. The portable layout keeps every runtime file
+    under bin, so fold any sibling payload back into bin after client and
+    service outputs are present, then remove the duplicate top-level entries.
+  -->
+  <UsingTask TaskName="CampusNetNormalizePackageLayoutTask"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <PackageRoot ParameterType="System.String" Required="true" />
+      <BuildRoot ParameterType="System.String" Required="true" />
+      <ConfigurationName ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var packageRoot = Path.GetFullPath(PackageRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var buildRoot = Path.GetFullPath(BuildRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var expectedRoot = Path.GetFullPath(
+            Path.Combine(buildRoot, "package", ConfigurationName))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!String.Equals(packageRoot, expectedRoot, StringComparison.OrdinalIgnoreCase) ||
+            String.Equals(packageRoot, Path.GetPathRoot(packageRoot), StringComparison.OrdinalIgnoreCase))
+        {
+            Log.LogError("Refusing to normalize unexpected package directory: {0}", packageRoot);
+            return false;
+        }
+
+        var bin = Path.Combine(packageRoot, "bin");
+        var launcher = Path.Combine(packageRoot, "CampusNetLauncher.exe");
+        if (!File.Exists(launcher) ||
+            !File.Exists(Path.Combine(bin, "CampusNetClient.exe")) ||
+            !File.Exists(Path.Combine(bin, "CampusNetService.exe")))
+        {
+            Log.LogError("Package normalization requires the launcher, client, and service outputs to exist.");
+            return false;
+        }
+
+        var binPrefix = Path.GetFullPath(bin)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+        var payloadFiles = Directory.GetFiles(packageRoot, "*", SearchOption.AllDirectories)
+            .Where(path =>
+            {
+                var fullPath = Path.GetFullPath(path);
+                return !fullPath.StartsWith(binPrefix, StringComparison.OrdinalIgnoreCase) &&
+                       !String.Equals(fullPath, launcher, StringComparison.OrdinalIgnoreCase);
+            })
+            .ToArray();
+
+        foreach (var source in payloadFiles)
+        {
+            var relativePath = source.Substring(packageRoot.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var destination = Path.Combine(bin, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            File.Copy(source, destination, true);
+        }
+
+        foreach (var source in payloadFiles)
+        {
+            File.Delete(source);
+        }
+
+        var removedDirectories = 0;
+        foreach (var directory in Directory.GetDirectories(packageRoot))
+        {
+            if (String.Equals(Path.GetFileName(directory), "bin", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+            {
+                Log.LogError("Refusing to remove a reparse-point directory from the package root: {0}", directory);
+                return false;
+            }
+            if (Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length != 0)
+            {
+                Log.LogError("Package-root directory still contains files after consolidation: {0}", directory);
+                return false;
+            }
+            Directory.Delete(directory, true);
+            removedDirectories++;
+        }
+
+        Log.LogMessage(Microsoft.Build.Framework.MessageImportance.Normal,
+            "CampusNet package layout normalized: moved {0} runtime files and removed {1} stray directories.",
+            payloadFiles.Length, removedDirectories);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="CampusNetNormalizePackageLayout"
+          AfterTargets="Build"
+          Condition="Exists('$(CampusNetPackageRoot)\bin\CampusNetClient.exe') and Exists('$(CampusNetPackageRoot)\bin\CampusNetService.exe')">
+    <CampusNetNormalizePackageLayoutTask PackageRoot="$(CampusNetPackageRoot)"
+                                         BuildRoot="$(CampusNetBuildRoot)"
+                                         ConfigurationName="$(Configuration)" />
+  </Target>
+</Project>

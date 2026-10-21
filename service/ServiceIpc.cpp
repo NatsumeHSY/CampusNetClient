@@ -137,6 +137,12 @@ void ServiceIpcServer::Run() {
         if (!pipe) {
             return;
         }
+        // Stop() may try to open the pipe before this instance exists. In
+        // that case its wake-up attempt cannot reach us, so re-check before
+        // entering the blocking ConnectNamedPipe call.
+        if (stopping_.load()) {
+            return;
+        }
 
         const BOOL connected = ConnectNamedPipe(pipe.get(), nullptr)
                                    ? TRUE

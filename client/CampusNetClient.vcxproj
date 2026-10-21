@@ -21,7 +21,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" /><ImportGroup Label="ExtensionSettings" /><ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
-  <PropertyGroup Label="UserMacros" /><PropertyGroup><CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot><OutDir>$(CampusNetBuildRoot)\bin\$(Configuration)\</OutDir><IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir></PropertyGroup>
+  <PropertyGroup Label="UserMacros" /><PropertyGroup><CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot><CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot><OutDir>$(CampusNetPackageRoot)\bin\</OutDir><IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir></PropertyGroup>
   <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><PreprocessorDefinitions>CAMPUSNET_WEBVIEW2_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalOptions>/FS /utf-8 %(AdditionalOptions)</AdditionalOptions><AdditionalIncludeDirectories>$(GeneratedFilesDir);$(IntDir);$(ProjectDir)..\shared;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem></Link></ItemDefinitionGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />
@@ -37,6 +37,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="TrayIcon.cpp" />
     <ClCompile Include="StartupMode.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="SingleInstanceActivation.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
      <ClCompile Include="ClientIpc.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
      <ClCompile Include="ClientViewModel.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
      <ClCompile Include="ServiceManager.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
@@ -48,6 +49,7 @@
     <ClInclude Include="MainWindow.xaml.h" />
     <ClInclude Include="TrayIcon.h" />
     <ClInclude Include="StartupMode.h" />
+    <ClInclude Include="SingleInstanceActivation.h" />
     <ClInclude Include="ClientIpc.h" />
     <ClInclude Include="ClientViewModel.h" />
     <ClInclude Include="ServiceManager.h" />
@@ -81,14 +83,6 @@
     <Copy SourceFiles="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\build\native\x64\WebView2Loader.dll"
           DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- Keep the service beside the client for green-folder runs. -->
-  <Target Name="CampusNetCopyServiceBinary" AfterTargets="Build">
-    <Copy SourceFiles="$(SolutionDir)..\build\$(Configuration)\CampusNetService.exe"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(SolutionDir)..\build\$(Configuration)\CampusNetService.exe')" />
   </Target>
 
   <!-- WindowsAppSDKSelfContained enables the native auto-initializer, but

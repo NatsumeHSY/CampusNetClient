@@ -8,4 +8,5 @@ enum class ClientStartupMode {
 };
 
 ClientStartupMode ParseStartupMode(std::wstring_view value);
+bool ShouldActivateExistingInstance(ClientStartupMode startupMode);
 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
+#include "SingleInstanceActivation.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -473,13 +474,33 @@ MainWindow::MainWindow()
     dispatcher_ =
         Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
     if (dispatcher_ != nullptr) {
-        pollThread_ = std::thread([this] {
+        const HANDLE activationEvent = OpenSingleInstanceActivationEvent();
+        pollThread_ = std::thread([this, activationEvent] {
             while (!pollStop_.load()) {
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+                DWORD waitResult = WAIT_TIMEOUT;
+                if (activationEvent != nullptr) {
+                    waitResult = WaitForSingleObject(activationEvent, 2000);
+                    if (waitResult == WAIT_FAILED) {
+                        std::this_thread::sleep_for(std::chrono::seconds(2));
+                        waitResult = WAIT_TIMEOUT;
+                    }
+                } else {
+                    std::this_thread::sleep_for(std::chrono::seconds(2));
+                }
                 if (pollStop_.load()) {
                     break;
                 }
-                dispatcher_.TryEnqueue([this] { RefreshStatus(); });
+                if (waitResult == WAIT_OBJECT_0) {
+                    dispatcher_.TryEnqueue([this] {
+                        ShowFromTray();
+                        RefreshStatus();
+                    });
+                } else if (waitResult == WAIT_TIMEOUT) {
+                    dispatcher_.TryEnqueue([this] { RefreshStatus(); });
+                }
+            }
+            if (activationEvent != nullptr) {
+                CloseHandle(activationEvent);
             }
         });
     }
