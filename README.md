@@ -54,12 +54,14 @@ UAC/会话边界：服务的浏览器兜底路径目前通过 `CreateProcessAsUs
 
 需要 Visual Studio 2022 C++ 工作负载、v143、Windows SDK 10.0.26100.0、Windows App SDK NuGet 依赖，以及 WiX Toolset v4（MSI 构建）。所有构建产物放在工作区根目录 `build`，不要放入原 Python 项目的 `release`。
 
-当前机器上 WinUI 的元数据合并工具对含中文路径不稳定；构建时可将工作区临时映射为 ASCII 盘符，再调用 MSBuild，例如：
+WinUI 的元数据合并工具在部分环境下对含非 ASCII 字符的路径不稳定；可将工作区临时映射为 ASCII 盘符，再调用 MSBuild。请在包含 `CampusNetClient` 子目录的工作区根目录执行，并按本机 Visual Studio 版本调整 MSBuild 路径：
 
 ```powershell
-subst T: ..
+$workspaceRoot = (Get-Location).Path
+$msbuild = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe'
+subst T: $workspaceRoot
 try {
-    & 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe' `
+    & $msbuild `
       T:\CampusNetClient\CampusNetClient.sln /m /p:Configuration=Release /p:Platform=x64
 } finally {
     subst T: /d
