@@ -78,11 +78,24 @@
                                         <TextBlock x:Name="ComputerNameText"
                                                    Text="计算机名：读取中"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock x:Name="PublicIpText"
+                                                   Text="外网 IP：检测中"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Button Content="立即登录" Click="LoginButton_Click" />
+                                        <Button x:Name="LoginButton" Content="立即登录" Click="LoginButton_Click" />
+                                        <ProgressRing x:Name="LoginProgressRing"
+                                                      Width="20" Height="20"
+                                                      IsActive="False"
+                                                      Visibility="Collapsed"
+                                                      VerticalAlignment="Center" />
                                         <Button Content="刷新状态" Click="RefreshButton_Click" />
                                     </StackPanel>
+                                    <InfoBar x:Name="LoginFailureInfoBar"
+                                             IsOpen="False"
+                                             IsClosable="True"
+                                             Severity="Error"
+                                             Title="登录失败" />
                                 </StackPanel>
 
                                 <Canvas Width="180"

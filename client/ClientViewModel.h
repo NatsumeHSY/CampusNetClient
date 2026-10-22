@@ -2,6 +2,7 @@
 
 #include "Config.h"
 
+#include <optional>
 #include <string>
 
 class ClientViewModel {
@@ -12,6 +13,9 @@ public:
     bool WebViewFallbackEnabled() const;
     std::wstring WebViewFallbackNotice() const;
     void SetUiAutostart(bool enabled);
+    bool CanRequestLogin(std::optional<bool> internetReachable,
+                         bool loginSucceeded,
+                         bool loginInProgress = false) const;
 
     const AppConfig& Config() const;
 

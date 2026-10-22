@@ -85,6 +85,7 @@
     <ClCompile Include="WebViewRequestTests.cpp" />
     <ClCompile Include="EndToEndLocalTests.cpp" />
     <ClCompile Include="..\service\HttpPortalClient.cpp" />
+    <ClCompile Include="..\service\PortalNetworkIdentity.cpp" />
     <ClCompile Include="..\service\ServiceIpc.cpp" />
     <ClCompile Include="..\service\ServiceState.cpp" />
     <ClCompile Include="..\service\LoginService.cpp" />

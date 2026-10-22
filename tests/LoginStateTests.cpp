@@ -94,15 +94,64 @@ InternetStatus Offline() { return {false, 0, L"fixture"}; }
 int RunLoginStateTests() {
     {
         FakeCredentials credentials;
+        FakeTransport transport;
+        FakeBrowserRequester browser;
+        LoginService service(TestConfig(), credentials, transport, browser);
+        assert(!service.Status().internetStatusKnown);
+
+        service.SetInternetStatus(true, L"198.51.100.42", 200);
+        auto status = service.Status();
+        assert(status.internetStatusKnown);
+        assert(status.internetAvailable);
+        assert(status.publicIp == L"198.51.100.42");
+        assert(status.internetStatusCode == 200);
+
+        service.SetInternetStatus(false, {}, 0);
+        status = service.Status();
+        assert(status.internetStatusKnown);
+        assert(!status.internetAvailable);
+        assert(status.publicIp.empty());
+        assert(status.internetStatusCode == 0);
+    }
+
+    {
+        FakeCredentials credentials;
         credentials.credentials = Credentials{L"student", L"secret"};
         FakeTransport transport;
-        transport.internetResults = {Offline(), Online()};
+        transport.internetResults = {Offline()};
         FakeBrowserRequester browser;
         LoginService service(TestConfig(), credentials, transport, browser);
         const auto result = service.RunOnce();
         assert(result.result == LoginRunResult::Succeeded);
         assert(result.status.state == LoginState::Succeeded);
         assert(transport.loginCalls == 1);
+        assert(transport.checkCalls == 0);
+    }
+
+    {
+        FakeCredentials credentials;
+        credentials.credentials = Credentials{L"student", L"secret"};
+        FakeTransport transport;
+        transport.internetResults = {Online()};
+        FakeBrowserRequester browser;
+        LoginService service(TestConfig(), credentials, transport, browser);
+        const auto result = service.RunOnce();
+        assert(result.result == LoginRunResult::Succeeded);
+        assert(transport.loginCalls == 1);
+        assert(transport.checkCalls == 0);
+    }
+
+    {
+        FakeCredentials credentials;
+        credentials.credentials = Credentials{L"student", L"secret"};
+        FakeTransport transport;
+        transport.loginResult = {HttpLoginOutcome::Cancelled, 0, {},
+                                 L"cancelled"};
+        FakeBrowserRequester browser;
+        LoginService service(TestConfig(), credentials, transport, browser);
+        const auto result = service.RunOnce();
+        assert(result.result == LoginRunResult::Failed);
+        assert(browser.requests == 0);
     }
 
     {

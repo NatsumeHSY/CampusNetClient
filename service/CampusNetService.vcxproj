@@ -16,6 +16,7 @@
   <ItemGroup>
     <ClCompile Include="ServiceMain.cpp" />
     <ClCompile Include="HttpPortalClient.cpp" />
+    <ClCompile Include="PortalNetworkIdentity.cpp" />
     <ClCompile Include="ServiceIpc.cpp" />
     <ClCompile Include="ServiceState.cpp" />
     <ClCompile Include="LoginService.cpp" />

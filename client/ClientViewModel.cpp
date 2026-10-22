@@ -22,4 +22,16 @@ void ClientViewModel::SetUiAutostart(bool enabled) {
     config_.uiAutostart = enabled;
 }
 
+bool ClientViewModel::CanRequestLogin(std::optional<bool> internetReachable,
+                                      bool loginSucceeded,
+                                      bool loginInProgress) const {
+    if (loginSucceeded || loginInProgress) {
+        return false;
+    }
+    if (internetReachable.has_value()) {
+        return !*internetReachable;
+    }
+    return true;
+}
+
 const AppConfig& ClientViewModel::Config() const { return config_; }

@@ -26,6 +26,7 @@
 #include <cwchar>
 #include <cwctype>
 #include <filesystem>
+#include <utility>
 #include <winsock2.h>
 #include <IPTypes.h>
 #include <iphlpapi.h>
@@ -506,19 +507,23 @@ MainWindow::MainWindow()
     }
 }
 
-MainWindow::~MainWindow() { StopPolling(); }
+MainWindow::~MainWindow() {
+    lifetimeGuard_->store(false);
+    StopPolling();
+    if (loginRequestThread_.joinable()) {
+        loginRequestThread_.join();
+    }
+}
 
 void MainWindow::LoginButton_Click(IInspectable const&, RoutedEventArgs const&) {
-    std::wstring error;
-    ipc_.Call({kProtocolVersion, MessageType::LoginNow, L"ui-login", "{}"},
-              1500, error);
-    RefreshStatus();
+    StartLoginAttempt(L"ui-login");
 }
 
 void MainWindow::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&) {
     RefreshStatus();
     RefreshLocalNetworkInfo();
     RefreshServiceStatus();
+    RequestNetworkStatusRefresh();
 }
 
 void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
@@ -556,6 +561,13 @@ void MainWindow::RefreshStatus() {
         error);
     if (!response.has_value()) {
         StatusText().Text(L"\u672A\u8FDE\u63A5\u5230\u670D\u52A1");
+        PublicIpText().Text(L"\u5916\u7F51 IP\uFF1A\u670D\u52A1\u672A\u8FDE\u63A5");
+        internetReachable_.reset();
+        if (loginAttemptPending_ && !loginAttemptAwaitingRequest_) {
+            CompleteLoginAttempt(
+                false, error.empty() ? L"登录服务未连接。" : error);
+        }
+        UpdateLoginButton();
         SetStatusIndicator(false);
         SetStatusIllustration(L"service-disconnected.png");
         return;
@@ -566,7 +578,34 @@ void MainWindow::RefreshStatus() {
 
     const bool internetAvailable =
         ExtractJsonBool(response->payload, "internetAvailable").value_or(false);
-    if (HasState(response->payload, "Succeeded") && internetAvailable) {
+    const bool internetStatusKnown =
+        ExtractJsonBool(response->payload, "internetStatusKnown").value_or(false);
+    internetReachable_ = internetStatusKnown
+                             ? std::optional<bool>(internetAvailable)
+                             : std::nullopt;
+    const auto publicIp = ExtractJsonString(response->payload, "publicIp");
+    const std::wstring publicIpValue =
+        !internetStatusKnown
+            ? L"\u68C0\u6D4B\u4E2D"
+            : (publicIp.has_value() && !publicIp->empty())
+                  ? FromUtf8(*publicIp)
+                  : L"\u672A\u83B7\u53D6";
+    PublicIpText().Text(winrt::hstring(
+        L"\u5916\u7F51 IP\uFF1A" + publicIpValue));
+    loginSucceeded_ = HasState(response->payload, "Succeeded");
+    if (loginAttemptPending_ && !loginAttemptAwaitingRequest_) {
+        if (loginSucceeded_) {
+            CompleteLoginAttempt(true, {});
+        } else if (HasState(response->payload, "Failed") ||
+                   HasState(response->payload, "BrowserFallbackDisabled")) {
+            const auto message = ExtractJsonString(response->payload, "message");
+            CompleteLoginAttempt(
+                false, message.has_value() ? FromUtf8(*message)
+                                           : L"登录失败，请检查网络和账号密码。");
+        }
+    }
+    UpdateLoginButton();
+    if (HasState(response->payload, "Succeeded")) {
         SetStatusIllustration(L"network-authenticated.png");
     } else if (HasState(response->payload, "WaitingForNetwork") ||
                HasState(response->payload, "CheckingInternet") ||
@@ -596,6 +635,83 @@ void MainWindow::RefreshLocalNetworkInfo() {
         L"\u672C\u673A MAC\uFF1A" + info.mac));
     ComputerNameText().Text(winrt::hstring(
         L"\u8BA1\u7B97\u673A\u540D\uFF1A" + info.computerName));
+}
+
+void MainWindow::RequestNetworkStatusRefresh() {
+    std::wstring error;
+    ipc_.Call({kProtocolVersion, MessageType::CheckInternet,
+               L"ui-network-refresh", "{\"refresh\":true}"},
+              1500, error);
+}
+
+void MainWindow::UpdateLoginButton() {
+    LoginButton().IsEnabled(viewModel_.CanRequestLogin(
+        internetReachable_, loginSucceeded_, loginAttemptPending_));
+    LoginProgressRing().IsActive(loginAttemptPending_);
+    LoginProgressRing().Visibility(loginAttemptPending_ ? Visibility::Visible
+                                                       : Visibility::Collapsed);
+}
+
+void MainWindow::StartLoginAttempt(std::wstring requestId) {
+    if (!viewModel_.CanRequestLogin(internetReachable_, loginSucceeded_,
+                                    loginAttemptPending_)) {
+        return;
+    }
+
+    loginAttemptPending_ = true;
+    loginAttemptAwaitingRequest_ = true;
+    LoginFailureInfoBar().IsOpen(false);
+    UpdateLoginButton();
+
+    if (loginRequestThread_.joinable()) {
+        loginRequestThread_.join();
+    }
+
+    try {
+        const auto lifetimeGuard = lifetimeGuard_;
+        loginRequestThread_ = std::thread(
+            [this, lifetimeGuard, requestId = std::move(requestId)] {
+                std::wstring error;
+                const auto response = ipc_.Call(
+                    {kProtocolVersion, MessageType::LoginNow, requestId, "{}"},
+                    1500, error);
+                const bool requestAccepted = response.has_value();
+                dispatcher_.TryEnqueue(
+                    [this, lifetimeGuard, requestAccepted,
+                     error = std::move(error)]() mutable {
+                        if (!lifetimeGuard->load()) {
+                            return;
+                        }
+                        if (!requestAccepted) {
+                            CompleteLoginAttempt(
+                                false, error.empty()
+                                           ? L"无法连接到登录服务。"
+                                           : std::move(error));
+                            return;
+                        }
+                        loginAttemptAwaitingRequest_ = false;
+                        RefreshStatus();
+                    });
+            });
+    } catch (...) {
+        CompleteLoginAttempt(false, L"无法启动登录请求。");
+    }
+}
+
+void MainWindow::CompleteLoginAttempt(bool succeeded, std::wstring message) {
+    loginAttemptPending_ = false;
+    loginAttemptAwaitingRequest_ = false;
+    loginSucceeded_ = succeeded;
+    if (succeeded) {
+        LoginFailureInfoBar().IsOpen(false);
+    } else {
+        if (message.empty()) {
+            message = L"登录失败，请检查网络和账号密码。";
+        }
+        LoginFailureInfoBar().Message(winrt::hstring(message));
+        LoginFailureInfoBar().IsOpen(true);
+    }
+    UpdateLoginButton();
 }
 
 void MainWindow::SetStatusIndicator(bool connected) {
@@ -698,12 +814,7 @@ void MainWindow::HandleTrayCommand(TrayCommand command) {
         RefreshStatus();
         break;
     case TrayCommand::Login:
-        {
-            std::wstring error;
-            ipc_.Call({kProtocolVersion, MessageType::LoginNow, L"tray-login",
-                       "{}"},
-                      1500, error);
-        }
+        StartLoginAttempt(L"tray-login");
         break;
     case TrayCommand::Refresh:
         RefreshStatus();

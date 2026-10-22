@@ -146,18 +146,6 @@ bool HasAttribute(
                        [&key](const auto& item) { return item.first == key; });
 }
 
-bool IsPresentationField(std::wstring_view name) {
-    const std::wstring lower = Lower(name);
-    constexpr std::wstring_view excluded[] = {
-        L"other1",          L"notice_pic_loop1", L"notice_pic_loop2",
-        L"userid1",         L"passwd1",          L"userid2",
-        L"passwd2",         L"urlparameter",     L"submit",
-        L"button",          L"loginbutton",
-    };
-    return std::any_of(std::begin(excluded), std::end(excluded),
-                       [&lower](std::wstring_view item) { return lower == item; });
-}
-
 std::string ToUtf8(std::wstring_view value) {
     if (value.empty()) {
         return {};
@@ -175,7 +163,7 @@ std::string ToUtf8(std::wstring_view value) {
     return result;
 }
 
-std::wstring EncodeFormComponent(std::wstring_view value) {
+std::wstring EncodeEscapeDataString(std::wstring_view value) {
     const std::string utf8 = ToUtf8(value);
     constexpr wchar_t hex[] = L"0123456789ABCDEF";
     std::wstring encoded;
@@ -184,8 +172,6 @@ std::wstring EncodeFormComponent(std::wstring_view value) {
             (byte >= '0' && byte <= '9') || byte == '-' || byte == '_' ||
             byte == '.' || byte == '~') {
             encoded.push_back(static_cast<wchar_t>(byte));
-        } else if (byte == ' ') {
-            encoded.push_back(L'+');
         } else {
             encoded.push_back(L'%');
             encoded.push_back(hex[(byte >> 4) & 0x0F]);
@@ -193,6 +179,21 @@ std::wstring EncodeFormComponent(std::wstring_view value) {
         }
     }
     return encoded;
+}
+
+std::wstring DoubleEncode(std::wstring_view value) {
+    const std::wstring encoded = EncodeEscapeDataString(value);
+    return EncodeEscapeDataString(encoded);
+}
+
+std::wstring FindFieldValue(const PortalForm& form, std::wstring_view name,
+                            std::wstring_view fallback = {}) {
+    for (const auto& field : form.fields) {
+        if (!field.disabled && field.name == name) {
+            return field.value;
+        }
+    }
+    return std::wstring(fallback);
 }
 
 } // namespace
@@ -300,27 +301,13 @@ std::wstring ResolveUrl(std::wstring_view baseUrl, std::wstring_view reference) 
 
 std::wstring BuildLoginBody(const PortalForm& form,
                             const Credentials& credentials) {
-    std::vector<std::pair<std::wstring, std::wstring>> fields;
-    for (const auto& field : form.fields) {
-        const std::wstring lower = Lower(field.name);
-        if (field.disabled || IsPresentationField(field.name) ||
-            lower == L"userid" || lower == L"passwd" ||
-            lower == L"password") {
-            continue;
-        }
-        fields.emplace_back(field.name, field.value);
-    }
-    fields.emplace_back(L"userId", credentials.username);
-    fields.emplace_back(L"passwd", credentials.password);
-
-    std::wstring result;
-    for (const auto& [name, value] : fields) {
-        if (!result.empty()) {
-            result.push_back(L'&');
-        }
-        result += EncodeFormComponent(name);
-        result.push_back(L'=');
-        result += EncodeFormComponent(value);
-    }
-    return result;
+    const std::wstring service =
+        FindFieldValue(form, L"service", L"\u7535\u4FE1");
+    const std::wstring queryString = FindFieldValue(form, L"queryString");
+    return L"userId=" + DoubleEncode(credentials.username) +
+           L"&password=" + DoubleEncode(credentials.password) +
+           L"&service=" + DoubleEncode(service) +
+           L"&queryString=" + DoubleEncode(queryString) +
+           L"&operatorPwd=&operatorUserId=&validcode=&passwordEncrypt=" +
+           DoubleEncode(L"false");
 }

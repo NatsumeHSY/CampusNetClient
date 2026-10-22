@@ -77,6 +77,24 @@ if ($xaml -match '<ProgressRing\s+x:Name="StatusProgress"') {
     throw 'The old status progress ring must be removed from the status row.'
 }
 
+$loginActionRow = [regex]::Match(
+    $xaml,
+    '<StackPanel Orientation="Horizontal" Spacing="10">[\s\S]*?<Button x:Name="LoginButton"[\s\S]*?<ProgressRing x:Name="LoginProgressRing"[\s\S]*?<Button Content="刷新状态"[\s\S]*?</StackPanel>').Value
+if (-not $loginActionRow) {
+    throw 'The login action row must show a native progress ring beside the login button.'
+}
+if ($loginActionRow -notmatch 'LoginProgressRing[\s\S]*?IsActive="False"[\s\S]*?Visibility="Collapsed"') {
+    throw 'The login progress ring must start inactive and hidden.'
+}
+
+$loginFailureBar = [regex]::Match(
+    $xaml, '<InfoBar x:Name="LoginFailureInfoBar"[\s\S]*?/>').Value
+if (-not $loginFailureBar -or
+    $loginFailureBar -notmatch 'IsOpen="False"' -or
+    $loginFailureBar -notmatch 'Severity="Error"') {
+    throw 'Login failures must be shown in a native, initially hidden error InfoBar.'
+}
+
 if ($xaml -notmatch '<Storyboard\s+x:Key="StatusIndicatorBreathing"') {
     throw 'StatusIndicatorBreathing storyboard is missing.'
 }

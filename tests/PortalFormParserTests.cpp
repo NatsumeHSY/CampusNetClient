@@ -39,12 +39,22 @@ int RunPortalFormParserTests() {
                                    form->action);
     assert(action == L"http://1.1.1.1:8888/webauth.do?urlParameter=abc");
 
+    PortalForm scriptForm;
+    scriptForm.fields = {
+        {L"service", L"\u7535\u4FE1"},
+        {L"queryString",
+         L"wlanuserip=10.20.30.40&wlanacname=HHXY_XXL2F_HUIJU&t=wireless-v2-plain&nasip=2.2.2.230&mac=001122aabbcc"},
+    };
     const std::wstring body =
-        BuildLoginBody(*form, {L"student@school", L"p&word"});
-    assert(body.find(L"userId=student%40school") != std::wstring::npos);
-    assert(body.find(L"passwd=p%26word") != std::wstring::npos);
-    assert(body.find(L"presentation") == std::wstring::npos);
-    assert(body.find(L"urlParameter=") == std::wstring::npos);
+        BuildLoginBody(scriptForm, {L"student@school", L"p+ss word"});
+    assert(body ==
+           L"userId=student%2540school&password=p%252Bss%2520word&"
+           L"service=%25E7%2594%25B5%25E4%25BF%25A1&"
+           L"queryString=wlanuserip%253D10.20.30.40%2526"
+           L"wlanacname%253DHHXY_XXL2F_HUIJU%2526"
+           L"t%253Dwireless-v2-plain%2526nasip%253D2.2.2.230%2526"
+           L"mac%253D001122aabbcc&operatorPwd=&operatorUserId=&"
+           L"validcode=&passwordEncrypt=false");
 
     assert(!ParseLoginForm(L"<html><body>no login form</body></html>")
                 .has_value());

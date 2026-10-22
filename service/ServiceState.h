@@ -15,6 +15,8 @@ public:
     void SetUiConnected(bool connected);
     void SetUiAutostart(bool enabled);
     void SetInternetAvailable(bool available);
+    void SetInternetStatus(bool available, std::wstring_view publicIp,
+                           unsigned statusCode);
     void SetServiceRunning(bool running);
 
 private:

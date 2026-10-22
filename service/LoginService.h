@@ -63,6 +63,8 @@ public:
     ServiceStatus Status() const;
     void SetConfig(AppConfig config);
     void SetUiConnected(bool connected);
+    void SetInternetStatus(bool available, std::wstring_view publicIp,
+                           unsigned statusCode);
 
 private:
     LoginRunSummary Finish(LoginRunResult result, LoginState state,

@@ -4,6 +4,23 @@
 #include "StartupMode.h"
 
 #include <cassert>
+#include <optional>
+
+template <typename ViewModel>
+bool LoginAttemptAvailabilityBehavesCorrectly(const ViewModel& viewModel) {
+    if constexpr (requires {
+                      viewModel.CanRequestLogin(std::optional<bool>{}, false,
+                                                true);
+                  }) {
+        return !viewModel.CanRequestLogin(false, false, true) &&
+               !viewModel.CanRequestLogin(std::nullopt, false, true) &&
+               !viewModel.CanRequestLogin(false, true, false) &&
+               viewModel.CanRequestLogin(false, false, false) &&
+               viewModel.CanRequestLogin(std::nullopt, false, false) &&
+               !viewModel.CanRequestLogin(true, false, false);
+    }
+    return false;
+}
 
 int RunClientManagementTests() {
     ClientViewModel viewModel(LoadDefaultConfig());
@@ -14,6 +31,14 @@ int RunClientManagementTests() {
     assert(!viewModel.WebViewFallbackEnabled());
     assert(viewModel.WebViewFallbackNotice().find(L"WebView2") !=
            std::wstring::npos);
+
+    assert(viewModel.CanRequestLogin(std::nullopt, false));
+    assert(!viewModel.CanRequestLogin(std::nullopt, true));
+    assert(!viewModel.CanRequestLogin(true, false));
+    assert(!viewModel.CanRequestLogin(true, true));
+    assert(viewModel.CanRequestLogin(false, false));
+    assert(!viewModel.CanRequestLogin(false, true));
+    assert(LoginAttemptAvailabilityBehavesCorrectly(viewModel));
 
     assert(MapServiceState(SERVICE_STOPPED) == ManagedServiceState::Stopped);
     assert(MapServiceState(SERVICE_RUNNING) == ManagedServiceState::Running);

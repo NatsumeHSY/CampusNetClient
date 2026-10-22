@@ -36,6 +36,10 @@ if ($refreshMethod.Groups['body'].Value -match
     'SetStatusIllustration\s*\(\s*L"service-connecting\.png"') {
     throw 'A status refresh must keep the current illustration until the fresh response arrives.'
 }
+if ($refreshMethod.Groups['body'].Value -notmatch
+    'if\s*\(HasState\(response->payload,\s*"Succeeded"\)\)\s*\{\s*SetStatusIllustration\(L"network-authenticated\.png"\)') {
+    throw 'Portal authentication success must remain visible even when public internet probes are unavailable.'
+}
 
 foreach ($asset in @(
         'service-disconnected.png',

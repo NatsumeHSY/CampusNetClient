@@ -56,41 +56,27 @@ LoginRunSummary LoginService::RunOnce() {
         return {LoginRunResult::CredentialsMissing, Status()};
     }
 
-    state_.Update(LoginState::CheckingInternet, L"checking internet access");
-    const InternetStatus before = transport_.CheckInternet(config_);
-    state_.SetInternetAvailable(before.reachable);
-    if (before.reachable) {
-        std::scoped_lock lock(mutex_);
-        nextRetry_.reset();
-        return Finish(LoginRunResult::Succeeded, LoginState::Succeeded,
-                      L"internet is already available");
-    }
-
     HttpLoginResult lastLogin;
     for (int attempt = 0; attempt < config_.maxLoginAttempts; ++attempt) {
         state_.Update(LoginState::HttpLogin, L"submitting HTTP portal login");
         lastLogin = transport_.Login(config_, *stored);
+        if (lastLogin.outcome == HttpLoginOutcome::Cancelled) {
+            return Finish(LoginRunResult::Failed, LoginState::Failed,
+                          L"HTTP portal login cancelled");
+        }
         if (lastLogin.outcome != HttpLoginOutcome::Success) {
             if (attempt + 1 < config_.maxLoginAttempts) {
                 sleeper_(config_.retryDelayMs);
             }
             continue;
         }
-
-        state_.Update(LoginState::VerifyingInternet,
-                      L"verifying internet access");
-        for (int verification = 0;
-             verification < config_.verificationAttempts; ++verification) {
-            const InternetStatus after = transport_.CheckInternet(config_);
-            state_.SetInternetAvailable(after.reachable);
-            if (after.reachable) {
-                std::scoped_lock lock(mutex_);
-                nextRetry_.reset();
-                return Finish(LoginRunResult::Succeeded, LoginState::Succeeded,
-                              L"HTTP login succeeded and internet was verified");
-            }
-            sleeper_(config_.verifyIntervalMs);
-        }
+        std::scoped_lock lock(mutex_);
+        nextRetry_.reset();
+        const std::wstring message = lastLogin.message.empty()
+                                         ? L"HTTP portal login succeeded"
+                                         : lastLogin.message;
+        return Finish(LoginRunResult::Succeeded, LoginState::Succeeded,
+                      message);
     }
 
     return FallbackAfterHttpFailure();
@@ -132,6 +118,12 @@ void LoginService::SetConfig(AppConfig config) {
 
 void LoginService::SetUiConnected(bool connected) {
     state_.SetUiConnected(connected);
+}
+
+void LoginService::SetInternetStatus(bool available,
+                                     std::wstring_view publicIp,
+                                     unsigned statusCode) {
+    state_.SetInternetStatus(available, publicIp, statusCode);
 }
 
 LoginRunSummary LoginService::Finish(LoginRunResult result, LoginState state,

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 int RunCredentialStoreTests();
@@ -17,8 +18,9 @@ int RunEndToEndLocalTests();
 
 int wmain() {
     const AppConfig defaults = LoadDefaultConfig();
-    assert(defaults.gateway == L"1.1.1.1");
-    assert(defaults.portalUrl == L"http://1.1.1.1/");
+    assert(defaults.gateway == L"10.10.12.13");
+    assert(defaults.portalUrl == L"http://10.10.12.13/");
+    assert(defaults.maxLoginAttempts == 1);
     assert(defaults.uiAutostart);
     assert(!defaults.showWebView);
     assert(defaults.httpTimeoutMs > 0);
@@ -43,6 +45,18 @@ int wmain() {
     assert(loaded.showWebView == defaults.showWebView);
     assert(loaded.httpTimeoutMs == defaults.httpTimeoutMs);
     std::filesystem::remove(path);
+
+    const auto legacyPath =
+        std::filesystem::temp_directory_path() / L"campus-net-legacy-config-test.json";
+    {
+        std::ofstream legacy(legacyPath, std::ios::binary | std::ios::trunc);
+        legacy << R"({"gateway":"1.1.1.1","portalUrl":"http://1.1.1.1/","maxLoginAttempts":2})";
+    }
+    const AppConfig migrated = LoadConfig(legacyPath);
+    assert(migrated.gateway == L"10.10.12.13");
+    assert(migrated.portalUrl == L"http://10.10.12.13/");
+    assert(migrated.maxLoginAttempts == 1);
+    std::filesystem::remove(legacyPath);
 
     assert(RunCredentialStoreTests() == 0);
     assert(RunLoggerTests() == 0);

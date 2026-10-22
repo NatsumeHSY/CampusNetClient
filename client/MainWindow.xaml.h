@@ -17,6 +17,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <atomic>
@@ -56,6 +57,10 @@ struct MainWindow : MainWindowT<MainWindow> {
 private:
     void RefreshStatus();
     void RefreshLocalNetworkInfo();
+    void RequestNetworkStatusRefresh();
+    void UpdateLoginButton();
+    void StartLoginAttempt(std::wstring requestId);
+    void CompleteLoginAttempt(bool succeeded, std::wstring message);
     void SetStatusIndicator(bool connected);
     void SetStatusIllustration(std::wstring_view assetName);
     void StartStatusIndicatorAnimation();
@@ -74,7 +79,14 @@ private:
     std::unique_ptr<WebView2LoginHost> webView_;
     Microsoft::UI::Dispatching::DispatcherQueue dispatcher_{nullptr};
     std::thread pollThread_;
+    std::thread loginRequestThread_;
+    std::shared_ptr<std::atomic<bool>> lifetimeGuard_{
+        std::make_shared<std::atomic<bool>>(true)};
     std::atomic<bool> pollStop_{false};
+    std::optional<bool> internetReachable_;
+    bool loginSucceeded_{false};
+    bool loginAttemptPending_{false};
+    bool loginAttemptAwaitingRequest_{false};
     bool browserFlowStarted_{false};
     bool allowWindowClose_{false};
     std::wstring statusIllustrationAsset_;

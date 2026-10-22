@@ -14,9 +14,12 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <condition_variable>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
 
 namespace {
 
@@ -115,6 +118,9 @@ std::wstring StatusPayload(const ServiceStatus& status) {
            std::wstring(status.uiAutostart ? L"true" : L"false") +
            L",\"internetAvailable\":" +
            std::wstring(status.internetAvailable ? L"true" : L"false") +
+           L",\"internetStatusKnown\":" +
+           std::wstring(status.internetStatusKnown ? L"true" : L"false") +
+           L",\"publicIp\":\"" + JsonEscape(status.publicIp) + L"\"" +
            L",\"message\":\"" + JsonEscape(status.lastMessage) + L"\"}";
 }
 
@@ -144,6 +150,8 @@ public:
     InternetStatus CheckInternet(const AppConfig& config) override {
         return client_.CheckInternet(config);
     }
+
+    void Cancel() noexcept { client_.Cancel(); }
 
 private:
     HttpPortalClient client_;
@@ -212,6 +220,7 @@ public:
     }
 
     bool Start() {
+        const AppConfig internetCheckConfig = config_;
         const bool ipcStarted = ipc_.Start([this](const ProtocolMessage& request) {
             browser_.SetConnected(true);
             login_.SetUiConnected(true);
@@ -221,17 +230,84 @@ public:
             logger_.Error(L"unable to start local IPC");
             return false;
         }
-        if (!network_.Start([this] { login_.OnNetworkChanged(); })) {
+        if (!network_.Start([this] {
+                login_.OnNetworkChanged();
+                RequestInternetStatusRefresh();
+            })) {
             logger_.Warn(L"network notification registration failed");
         }
-        login_.RunOnce();
+        try {
+            loginWorkerThread_ = std::thread([this] {
+                login_.RunOnce();
+                std::unique_lock lock(loginWorkerMutex_);
+                while (!loginWorkerStopping_) {
+                    loginWorkerCondition_.wait(lock, [this] {
+                        return loginWorkerStopping_ || loginRequestPending_;
+                    });
+                    if (loginWorkerStopping_) {
+                        break;
+                    }
+                    loginRequestPending_ = false;
+                    lock.unlock();
+                    login_.RunOnce();
+                    lock.lock();
+                }
+            });
+        } catch (...) {
+            logger_.Error(L"unable to start the login worker");
+            return false;
+        }
+        try {
+            internetStatusThread_ = std::thread([this, internetCheckConfig] {
+                std::unique_lock lock(internetStatusMutex_);
+                while (!internetStatusStopping_) {
+                    internetStatusCondition_.wait_for(
+                        lock, std::chrono::seconds(30), [this] {
+                            return internetStatusStopping_ ||
+                                   internetStatusRefreshRequested_;
+                        });
+                    if (internetStatusStopping_) {
+                        break;
+                    }
+                    internetStatusRefreshRequested_ = false;
+                    lock.unlock();
+
+                    const InternetStatus internet =
+                        transport_.CheckInternet(internetCheckConfig);
+                    login_.SetInternetStatus(internet.reachable,
+                                             internet.publicIp,
+                                             internet.statusCode);
+
+                    lock.lock();
+                }
+            });
+        } catch (...) {
+            logger_.Warn(L"unable to start the internet status worker");
+        }
         return true;
     }
 
     void Stop() {
+        {
+            std::scoped_lock lock(internetStatusMutex_);
+            internetStatusStopping_ = true;
+        }
+        internetStatusCondition_.notify_all();
+        transport_.Cancel();
+        {
+            std::scoped_lock lock(loginWorkerMutex_);
+            loginWorkerStopping_ = true;
+        }
+        loginWorkerCondition_.notify_all();
         network_.Stop();
         ipc_.Stop();
         login_.SetUiConnected(false);
+        if (loginWorkerThread_.joinable()) {
+            loginWorkerThread_.join();
+        }
+        if (internetStatusThread_.joinable()) {
+            internetStatusThread_.join();
+        }
     }
 
     void Wait() const {
@@ -281,8 +357,8 @@ private:
                                          : L"{\"ok\":false}");
         }
         case MessageType::LoginNow: {
-            const auto result = login_.RunOnce();
-            return Reply(request, StatusPayload(result.status));
+            QueueLoginRequest();
+            return Reply(request, StatusPayload(login_.Status()));
         }
         case MessageType::BrowserLoginResult: {
             bool success = false;
@@ -294,12 +370,20 @@ private:
             return Reply(request, StatusPayload(login_.Status()));
         }
         case MessageType::CheckInternet: {
-            const auto internet = transport_.CheckInternet(config_);
+            bool refresh = false;
+            if (ExtractBool(request.payload, "refresh", refresh) && refresh) {
+                RequestInternetStatusRefresh();
+            }
+            const auto status = login_.Status();
             return Reply(request,
                          std::wstring(L"{\"reachable\":") +
-                             std::wstring(internet.reachable ? L"true" : L"false") +
+                             std::wstring(status.internetAvailable ? L"true" : L"false") +
                              L",\"statusCode\":" +
-                             std::to_wstring(internet.statusCode) + L"}");
+                             std::to_wstring(status.internetStatusCode) +
+                             L",\"known\":" +
+                             std::wstring(status.internetStatusKnown ? L"true" : L"false") +
+                             L",\"publicIp\":\"" +
+                             JsonEscape(status.publicIp) + L"\"}");
         }
         case MessageType::ServiceCommand:
             if (request.payload.find("stop") != std::string::npos) {
@@ -331,6 +415,28 @@ private:
                 ToUtf8(payload)};
     }
 
+    void QueueLoginRequest() {
+        {
+            std::scoped_lock lock(loginWorkerMutex_);
+            if (loginWorkerStopping_) {
+                return;
+            }
+            loginRequestPending_ = true;
+        }
+        loginWorkerCondition_.notify_one();
+    }
+
+    void RequestInternetStatusRefresh() {
+        {
+            std::scoped_lock lock(internetStatusMutex_);
+            if (internetStatusStopping_) {
+                return;
+            }
+            internetStatusRefreshRequested_ = true;
+        }
+        internetStatusCondition_.notify_one();
+    }
+
     AppConfig config_;
     Logger logger_;
     WindowsCredentialStore credentials_;
@@ -339,6 +445,16 @@ private:
     LoginService login_;
     ServiceIpcServer ipc_;
     NetworkMonitor network_;
+    std::mutex loginWorkerMutex_;
+    std::condition_variable loginWorkerCondition_;
+    bool loginWorkerStopping_{false};
+    bool loginRequestPending_{false};
+    std::thread loginWorkerThread_;
+    std::mutex internetStatusMutex_;
+    std::condition_variable internetStatusCondition_;
+    bool internetStatusStopping_{false};
+    bool internetStatusRefreshRequested_{true};
+    std::thread internetStatusThread_;
     HANDLE stopEvent_;
 };
 

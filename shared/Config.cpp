@@ -160,9 +160,19 @@ AppConfig LoadConfig(const std::filesystem::path& path) {
     std::wstring stringValue;
     if (FindJsonString(json, "gateway", stringValue)) config.gateway = stringValue;
     if (FindJsonString(json, "portalUrl", stringValue)) config.portalUrl = stringValue;
+    if (config.gateway == L"1.1.1.1") {
+        config.gateway = L"10.10.12.13";
+    }
+    const bool legacyPortal = config.portalUrl == L"http://1.1.1.1/";
+    if (legacyPortal) {
+        config.portalUrl = L"http://10.10.12.13/";
+    }
     FindJsonInt(json, "httpTimeoutMs", config.httpTimeoutMs);
     FindJsonInt(json, "verifyTimeoutMs", config.verifyTimeoutMs);
     FindJsonInt(json, "maxLoginAttempts", config.maxLoginAttempts);
+    if (legacyPortal && config.maxLoginAttempts == 2) {
+        config.maxLoginAttempts = 1;
+    }
     FindJsonInt(json, "retryDelayMs", config.retryDelayMs);
     FindJsonInt(json, "verificationAttempts", config.verificationAttempts);
     FindJsonInt(json, "verifyIntervalMs", config.verifyIntervalMs);

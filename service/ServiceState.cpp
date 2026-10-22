@@ -45,6 +45,28 @@ void ServiceState::SetUiAutostart(bool enabled) {
 void ServiceState::SetInternetAvailable(bool available) {
     std::scoped_lock lock(mutex_);
     status_.internetAvailable = available;
+    status_.internetStatusKnown = true;
+    status_.internetStatusCode = 0;
+    if (!available) {
+        status_.publicIp.clear();
+    }
+    Touch();
+}
+
+void ServiceState::SetInternetStatus(bool available,
+                                     std::wstring_view publicIp,
+                                     unsigned statusCode) {
+    std::scoped_lock lock(mutex_);
+    if (status_.internetStatusKnown &&
+        status_.internetAvailable == available &&
+        status_.internetStatusCode == statusCode &&
+        status_.publicIp == publicIp) {
+        return;
+    }
+    status_.internetStatusKnown = true;
+    status_.internetAvailable = available;
+    status_.internetStatusCode = statusCode;
+    status_.publicIp = available ? publicIp : std::wstring{};
     Touch();
 }
 
