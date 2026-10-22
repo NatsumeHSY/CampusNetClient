@@ -56,4 +56,3 @@ private:
     bool checkPending_ = false;
     bool updaterUiLaunched_ = false;
 };
-

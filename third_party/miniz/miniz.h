@@ -584,7 +584,7 @@ extern "C"
     {
         return mz_adler32(adler, ptr, buf_len);
     }
-    
+
 #define MAX_WBITS 15
 #define MAX_MEM_LEVEL 9
 
