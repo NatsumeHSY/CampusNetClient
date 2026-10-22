@@ -274,6 +274,16 @@ std::wstring MessageTypeName(MessageType type) {
         return L"GetLogs";
     case MessageType::ServiceCommand:
         return L"ServiceCommand";
+    case MessageType::CheckForUpdates:
+        return L"CheckForUpdates";
+    case MessageType::GetUpdateStatus:
+        return L"GetUpdateStatus";
+    case MessageType::ShowUpdater:
+        return L"ShowUpdater";
+    case MessageType::ApplyStagedUpdate:
+        return L"ApplyStagedUpdate";
+    case MessageType::UpdateAgentStatus:
+        return L"UpdateAgentStatus";
     }
     return {};
 }
@@ -285,7 +295,9 @@ std::optional<MessageType> ParseMessageType(std::wstring_view name) {
         MessageType::LoginNow,           MessageType::CheckInternet,
         MessageType::BrowserLoginRequest, MessageType::BrowserLoginResult,
         MessageType::SetUiAutostart,     MessageType::GetLogs,
-        MessageType::ServiceCommand,
+        MessageType::ServiceCommand,   MessageType::CheckForUpdates,
+        MessageType::GetUpdateStatus,  MessageType::ShowUpdater,
+        MessageType::ApplyStagedUpdate, MessageType::UpdateAgentStatus,
     };
     for (const auto value : values) {
         if (MessageTypeName(value) == name) {

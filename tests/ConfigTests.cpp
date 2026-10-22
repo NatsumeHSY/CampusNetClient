@@ -1,6 +1,9 @@
 #include "Config.h"
 
 #include <cassert>
+#ifdef _DEBUG
+#include <crtdbg.h>
+#endif
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -15,8 +18,21 @@ int RunClientManagementTests();
 int RunLauncherTests();
 void RunWebViewRequestTests();
 int RunEndToEndLocalTests();
+int RunUpdateManifestTests();
+int RunUpdateIntegrityTests();
+int RunUpdateDownloaderTests();
+int RunUpdaterRoleTests();
+int RunUpdaterSupervisorTests();
+int RunUpdateBrokerTests();
+int RunUpdateCheckPresentationTests();
+int RunPortableUpdateApplyTests();
+int RunMsiUpdateApplyTests();
 
 int wmain() {
+#ifdef _DEBUG
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
     const AppConfig defaults = LoadDefaultConfig();
     assert(defaults.gateway == L"10.10.12.13");
     assert(defaults.portalUrl == L"http://10.10.12.13/");
@@ -68,6 +84,15 @@ int wmain() {
     assert(RunLauncherTests() == 0);
     RunWebViewRequestTests();
     assert(RunEndToEndLocalTests() == 0);
+    assert(RunUpdateManifestTests() == 0);
+    assert(RunUpdateIntegrityTests() == 0);
+    assert(RunUpdateDownloaderTests() == 0);
+    assert(RunUpdaterRoleTests() == 0);
+    assert(RunUpdaterSupervisorTests() == 0);
+    assert(RunUpdateBrokerTests() == 0);
+    assert(RunUpdateCheckPresentationTests() == 0);
+    if (RunPortableUpdateApplyTests() != 0) return 1;
+    assert(RunMsiUpdateApplyTests() == 0);
 
     return 0;
 }

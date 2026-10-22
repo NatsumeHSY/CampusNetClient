@@ -31,7 +31,7 @@
                        />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" Margin="0,18,0,0"
+        <ScrollViewer x:Name="MainContentScrollViewer" Grid.Row="1" Margin="0,18,0,0"
                       VerticalAlignment="Stretch"
                       VerticalContentAlignment="Stretch"
                       VerticalScrollBarVisibility="Auto">
@@ -207,6 +207,33 @@
                 </StackPanel>
             </Grid>
         </ScrollViewer>
+
+        <Grid x:Name="UpdateCheckOverlay"
+              Grid.Row="1"
+              Margin="0,18,0,0"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              Opacity="0.92"
+              Visibility="Collapsed"
+              IsHitTestVisible="True">
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="28"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="14" HorizontalAlignment="Center">
+                    <ProgressRing IsActive="True"
+                                  Width="42"
+                                  Height="42"
+                                  HorizontalAlignment="Center" />
+                    <TextBlock Text="正在检查更新，请稍候…"
+                               FontSize="16"
+                               HorizontalTextAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
 
     </Grid>
 </Window>

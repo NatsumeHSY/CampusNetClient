@@ -1,24 +1,14 @@
-# CampusNetClient installer
+# MSI 构建
 
-`CampusNetClient.wxs` is the WiX v4 source for the unpackaged deployment. It installs the WinUI 3 client and `CampusNetService.exe` into the same directory so the service can launch the client in the active user session without command-line arguments.
-
-The MSI registers `CampusNetService` as a native Windows Service with automatic startup. Uninstall stops and removes the service through MSI service actions. The product itself does not expose a public CLI, `cmd.exe`, PowerShell, scheduled task, or VBS entry point.
-
-The source was compiled locally with WiX 4.0.6 using the Debug binaries. `build-msi.ps1` writes the MSI and its WiX metadata to the workspace-root `build\package\` by default; keep generated packages out of the workspace-level `release` directory, which belongs to the original Python client. The validation package is a packaging smoke-test artifact, not a signed release package. Before publishing, rebuild with the Release output and provide these variables:
-
-- `ProductVersion`: four-part MSI version.
-- `ClientBinDir`: directory containing the client executable, XAML binary resources, merged WinMD, and WebView2 Core files.
-- `ServiceBinDir`: directory containing `CampusNetService.exe`.
-
-Example developer build command (the installed product still exposes no public CLI):
+使用 `build-msi.ps1` 构建非 MSIX 的传统 Windows Installer 包。脚本从仓库根目录 `version.props` 读取唯一 SemVer，接收已构建的 Release `bin` 目录，并在 `build\package` 生成 MSI 和同目录 `*.msi.files.json` 安装文件哈希清单。
 
 ```powershell
-wix build CampusNetClient.wxs `
-  -d ProductVersion=0.1.0.0 `
-  -d ClientBinDir=C:\path\to\client\bin `
-  -d ServiceBinDir=C:\path\to\service\bin `
-  -o ..\..\build\package\CampusNetClient-0.1.0.0.msi
+pwsh -File installer\build-msi.ps1 `
+  -PackageBinDir build\package\Release\bin
 ```
 
-The Evergreen WebView2 Runtime is a machine prerequisite and is not embedded in this MSI. The first-run UI should report a missing runtime as a WebView2 fallback failure rather than silently falling back to a shell or browser command.
+需要 WiX Toolset v4 的 `wix.exe` 可用；也可以通过 `-WixPath` 指向其完整路径。`-OutputPath` 可覆盖 MSI 输出位置；若目标文件已经存在，默认拒绝覆盖，只有显式传入 `-Force` 才会覆盖。临时 MSI payload 会放在目标 `build\package` 的唯一子目录，完成后只清理脚本创建的临时目录。
 
+脚本把 SemVer 的 major/minor/patch 映射为 MSI ProductVersion（major/minor 最大 255，patch 最大 65535），预发布与构建元数据不参与 MSI 版本比较。ProductCode 从 MSI 数值版本稳定派生，使同一 MSI 数值版本能够进行 `REINSTALL=ALL REINSTALLMODE=vomus` 修复；WiX 的 `AllowDowngrades` 允许更新器按仓库清单回退到较低版本。此策略只适用于由该脚本构建且共享 UpgradeCode 的 CampusNetClient MSI。
+
+脚本构建的安装内容包括 WinUI 客户端文件、服务、更新器、MSI 渠道 `version.json` 和服务安装元数据。MSI 由 SYSTEM apply helper 通过 Windows Installer API 应用；不会运行 `msiexec.exe` 命令行。开发机不应直接执行安装、降级或修复测试；这些场景应在干净 Windows VM 中验收。

@@ -1,14 +1,31 @@
 #pragma once
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include "Protocol.h"
+
+#include <Windows.h>
 
 #include <atomic>
 #include <functional>
 #include <thread>
 
+struct ServiceIpcClientContext {
+    DWORD processId = 0;
+    DWORD sessionId = 0;
+    bool interactiveUser = false;
+    bool restrictedToken = false;
+    bool systemUser = false;
+    bool restrictedCodeSid = false;
+};
+
 class ServiceIpcServer {
 public:
-    using Handler = std::function<ProtocolMessage(const ProtocolMessage&)>;
+    using Handler = std::function<ProtocolMessage(
+        const ProtocolMessage&, const ServiceIpcClientContext&)>;
+    using LegacyHandler =
+        std::function<ProtocolMessage(const ProtocolMessage&)>;
 
     ServiceIpcServer() = default;
     ~ServiceIpcServer();
@@ -17,6 +34,7 @@ public:
     ServiceIpcServer& operator=(const ServiceIpcServer&) = delete;
 
     bool Start(Handler handler);
+    bool Start(LegacyHandler handler);
     void Stop();
 
 private:

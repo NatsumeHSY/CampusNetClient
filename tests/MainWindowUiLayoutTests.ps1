@@ -123,6 +123,18 @@ if ($header -notmatch 'RefreshLocalNetworkInfo\(\)') {
     throw 'MainWindow must expose a local network information refresh method.'
 }
 
+if ($cpp -notmatch 'MessageType::GetUpdateStatus') {
+    throw 'The first-show update overlay must wait for the updater status.'
+}
+foreach ($phase in @('upToDate', 'available', 'failed', 'ready', 'applying')) {
+    if ($cpp -notmatch ('\*phase\s*==\s*"' + $phase + '"')) {
+        throw "The first-show update check must handle the $phase phase."
+    }
+}
+if ($cpp -notmatch 'std::chrono::steady_clock::now\(\)\s*<\s*updateDeadline') {
+    throw 'The first-show update check must be bounded by the overlay timeout.'
+}
+
 if ($cpp -notmatch 'GetAdaptersAddresses') {
     throw 'Local network information must be read from Windows adapter data.'
 }

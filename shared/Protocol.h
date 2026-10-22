@@ -22,6 +22,11 @@ enum class MessageType {
     SetUiAutostart,
     GetLogs,
     ServiceCommand,
+    CheckForUpdates,
+    GetUpdateStatus,
+    ShowUpdater,
+    ApplyStagedUpdate,
+    UpdateAgentStatus,
 };
 
 struct ProtocolMessage {

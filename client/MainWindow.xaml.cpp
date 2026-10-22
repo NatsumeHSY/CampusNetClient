@@ -475,8 +475,17 @@ MainWindow::MainWindow()
     dispatcher_ =
         Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
     if (dispatcher_ != nullptr) {
+        updateOverlayTimer_ = dispatcher_.CreateTimer();
+        updateOverlayTimer_.Interval(std::chrono::seconds(10));
+        updateOverlayTimer_.IsRepeating(false);
+        updateOverlayTimer_.Tick([this](auto const&, auto const&) {
+            if (updateCheckPresentation_.OnTimeout()) {
+                EndUpdateOverlay();
+            }
+        });
         const HANDLE activationEvent = OpenSingleInstanceActivationEvent();
-        pollThread_ = std::thread([this, activationEvent] {
+        const auto lifetimeGuard = lifetimeGuard_;
+        pollThread_ = std::thread([this, activationEvent, lifetimeGuard] {
             while (!pollStop_.load()) {
                 DWORD waitResult = WAIT_TIMEOUT;
                 if (activationEvent != nullptr) {
@@ -490,6 +499,38 @@ MainWindow::MainWindow()
                 }
                 if (pollStop_.load()) {
                     break;
+                }
+                if (updateCheckRequested_.exchange(false)) {
+                    std::wstring error;
+                    ipc_.Call({kProtocolVersion, MessageType::CheckForUpdates,
+                               L"ui-update-check", "{}"}, 2500, error);
+                    const auto updateDeadline =
+                        std::chrono::steady_clock::now() + std::chrono::seconds(9);
+                    while (!pollStop_.load() &&
+                           std::chrono::steady_clock::now() < updateDeadline) {
+                        auto status = ipc_.Call(
+                            {kProtocolVersion, MessageType::GetUpdateStatus,
+                             L"ui-update-status", "{}"}, 750, error);
+                        if (status) {
+                            const auto phase = ExtractJsonString(
+                                status->payload, "phase");
+                            if (phase && (*phase == "upToDate" ||
+                                          *phase == "available" ||
+                                          *phase == "failed" ||
+                                          *phase == "ready" ||
+                                          *phase == "applying")) {
+                                break;
+                            }
+                        }
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(250));
+                    }
+                    dispatcher_.TryEnqueue([this, lifetimeGuard] {
+                        if (lifetimeGuard->load()) {
+                            updateCheckInFlight_.store(false);
+                            CompleteUpdateCheck();
+                        }
+                    });
                 }
                 if (waitResult == WAIT_OBJECT_0) {
                     dispatcher_.TryEnqueue([this] {
@@ -524,6 +565,7 @@ void MainWindow::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&
     RefreshLocalNetworkInfo();
     RefreshServiceStatus();
     RequestNetworkStatusRefresh();
+    RequestUpdateCheck();
 }
 
 void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
@@ -548,10 +590,49 @@ void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
 
 void MainWindow::ShowFromTray() {
     AppWindow().Show(true);
+    OnWindowShown();
     RefreshLocalNetworkInfo();
 }
 
-void MainWindow::HideToTray() { AppWindow().Hide(); }
+void MainWindow::HideToTray() {
+    AppWindow().Hide();
+    updateCheckPresentation_.OnWindowHidden();
+}
+
+void MainWindow::OnWindowShown() {
+    const auto action = updateCheckPresentation_.OnWindowShown();
+    if (action.showOverlay) {
+        MainContentScrollViewer().IsEnabled(false);
+        UpdateCheckOverlay().Visibility(Visibility::Visible);
+        if (updateOverlayTimer_ != nullptr) {
+            updateOverlayTimer_.Start();
+        }
+    }
+    if (action.requestCheck) {
+        RequestUpdateCheck();
+    }
+}
+
+void MainWindow::RequestUpdateCheck() {
+    bool expected = false;
+    if (updateCheckInFlight_.compare_exchange_strong(expected, true)) {
+        updateCheckRequested_.store(true);
+    }
+}
+
+void MainWindow::CompleteUpdateCheck() {
+    if (updateCheckPresentation_.OnCheckCompleted()) {
+        EndUpdateOverlay();
+    }
+}
+
+void MainWindow::EndUpdateOverlay() {
+    if (updateOverlayTimer_ != nullptr) {
+        updateOverlayTimer_.Stop();
+    }
+    UpdateCheckOverlay().Visibility(Visibility::Collapsed);
+    MainContentScrollViewer().IsEnabled(true);
+}
 
 void MainWindow::RefreshStatus() {
     StatusText().Text(L"\u6B63\u5728\u8FDE\u63A5\u5230\u670D\u52A1");

@@ -21,6 +21,7 @@ void App::OnLaunched(LaunchActivatedEventArgs const&) {
         return;
     }
     window_.Activate();
+    winrt::get_self<MainWindow>(window_)->OnWindowShown();
 }
 
 } // namespace winrt::CampusNetClient::implementation

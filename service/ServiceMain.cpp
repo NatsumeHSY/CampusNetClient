@@ -2,24 +2,36 @@
 #include "LoginService.h"
 #include "NetworkMonitor.h"
 #include "ServiceIpc.h"
+#include "UpdateAgentIpc.h"
+#include "UpdateApplyProcessHost.h"
+#include "UpdateBroker.h"
+#include "UpdaterProcessSupervisor.h"
 
 #include "Config.h"
 #include "CredentialStore.h"
 #include "Logger.h"
 #include "UserSessionLauncher.h"
+#include "UpdateManifest.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <ShlObj.h>
 
 #include <algorithm>
 #include <condition_variable>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
+
+#pragma comment(lib, "Shell32.lib")
+#pragma comment(lib, "Ole32.lib")
 
 namespace {
 
@@ -138,6 +150,45 @@ std::string ToUtf8(std::wstring_view value) {
     return result;
 }
 
+std::optional<LocalInstallInfo> LoadLocalInstallInfo(
+    const std::filesystem::path& path, std::wstring& error) {
+    error.clear();
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        error = L"local version.json could not be opened";
+        return std::nullopt;
+    }
+    input.seekg(0, std::ios::end);
+    const auto length = input.tellg();
+    if (length <= 0 || length > 64 * 1024) {
+        error = L"local version.json has an invalid size";
+        return std::nullopt;
+    }
+    input.seekg(0, std::ios::beg);
+    std::string json(static_cast<std::size_t>(length), '\0');
+    if (!input.read(json.data(), static_cast<std::streamsize>(json.size()))) {
+        error = L"local version.json could not be read";
+        return std::nullopt;
+    }
+    LocalInstallInfo local;
+    if (!ParseLocalInstallInfo(json, local, error)) {
+        return std::nullopt;
+    }
+    return local;
+}
+
+std::filesystem::path ProgramDataPath() {
+    PWSTR rawPath = nullptr;
+    const HRESULT result = SHGetKnownFolderPath(FOLDERID_ProgramData, 0, nullptr,
+                                                 &rawPath);
+    if (FAILED(result) || rawPath == nullptr) {
+        return {};
+    }
+    std::filesystem::path path(rawPath);
+    CoTaskMemFree(rawPath);
+    return path;
+}
+
 class HttpTransport final : public ILoginTransport {
 public:
     explicit HttpTransport(Logger& logger) : client_(&logger) {}
@@ -208,6 +259,17 @@ public:
           logger_(ConfigPath().parent_path() / L"logs" / L"service.log"),
           transport_(logger_),
           login_(config_, credentials_, transport_, browser_),
+          updaterDirectory_(ConfigPath().parent_path()),
+          stagingDirectory_(ProgramDataPath() / L"CampusNetClient" /
+                            L"UpdateStaging"),
+          updaterProcessHost_(stagingDirectory_),
+          updaterSupervisor_(updaterProcessHost_,
+                             updaterDirectory_ / L"CampusNetUpdater.exe"),
+          updateApplyProcessHost_(ProgramDataPath() / L"CampusNetClient",
+                                  updaterDirectory_ / L"CampusNetUpdater.exe",
+                                  stagingDirectory_),
+          localInstallInfo_(LoadLocalInstallInfo(
+              updaterDirectory_ / L"version.json", updateConfigError_)),
           stopEvent_(CreateEventW(nullptr, TRUE, FALSE, nullptr)) {
         logger_.Info(L"CampusNetService starting");
     }
@@ -221,10 +283,15 @@ public:
 
     bool Start() {
         const AppConfig internetCheckConfig = config_;
-        const bool ipcStarted = ipc_.Start([this](const ProtocolMessage& request) {
-            browser_.SetConnected(true);
-            login_.SetUiConnected(true);
-            return Handle(request);
+        InitializeUpdaterBroker();
+        const bool ipcStarted = ipc_.Start(
+            [this](const ProtocolMessage& request,
+                   const ServiceIpcClientContext& client) {
+            if (client.interactiveUser) {
+                browser_.SetConnected(true);
+                login_.SetUiConnected(true);
+            }
+            return Handle(request, client);
         });
         if (!ipcStarted) {
             logger_.Error(L"unable to start local IPC");
@@ -284,6 +351,9 @@ public:
         } catch (...) {
             logger_.Warn(L"unable to start the internet status worker");
         }
+        if (updateBroker_ && !updaterSupervisor_.Start()) {
+            logger_.Warn(L"updater agent supervisor did not start; login remains active");
+        }
         return true;
     }
 
@@ -300,6 +370,7 @@ public:
         }
         loginWorkerCondition_.notify_all();
         network_.Stop();
+        updaterSupervisor_.Stop();
         ipc_.Stop();
         login_.SetUiConnected(false);
         if (loginWorkerThread_.joinable()) {
@@ -323,7 +394,83 @@ public:
     }
 
 private:
-    ProtocolMessage Handle(const ProtocolMessage& request) {
+    void InitializeUpdaterBroker() {
+        if (!localInstallInfo_) {
+            logger_.Warn(L"automatic updater is disabled: " + updateConfigError_);
+            return;
+        }
+        if (stagingDirectory_.empty()) {
+            logger_.Warn(L"automatic updater is disabled: ProgramData is unavailable");
+            return;
+        }
+        UpdateBrokerCallbacks callbacks;
+        callbacks.requestCheck = [this] { return updaterSupervisor_.RequestCheck(); };
+        callbacks.hasInteractiveSession = [] {
+            return UserSessionLauncher::HasInteractiveUser();
+        };
+        callbacks.showUpdater = [this] {
+            std::wstring error;
+            std::filesystem::path gui;
+            if (!updateApplyProcessHost_.PrepareInteractiveGui(gui, error)) {
+                logger_.Warn(L"updater GUI could not be prepared: " + error);
+                return false;
+            }
+            const auto installRoot = UpdateInstallRoot();
+            const std::vector<std::pair<std::wstring, std::wstring>> environment{
+                {L"CAMPUSNET_UPDATE_INSTALL_ROOT", installRoot.wstring()},
+                {L"CAMPUSNET_UPDATE_CHANNEL",
+                 localInstallInfo_->channel == UpdateChannel::Portable
+                     ? L"portable" : L"msi"},
+            };
+            if (!UserSessionLauncher::LaunchInActiveSession(gui, error,
+                                                            environment)) {
+                logger_.Warn(L"updater GUI could not be launched: " + error);
+                return false;
+            }
+            return true;
+        };
+        callbacks.applyStagedUpdate = [this](const TrustedUpdatePlan& plan) {
+            std::filesystem::path copiedUpdater;
+            std::wstring error;
+            if (!updateApplyProcessHost_.LaunchApply(
+                    plan, UpdateInstallRoot(), copiedUpdater, error)) {
+                logger_.Warn(L"update apply worker could not be started: " + error);
+                return false;
+            }
+            return true;
+        };
+        updateBroker_ = std::make_unique<UpdateBroker>(
+            localInstallInfo_->version, localInstallInfo_->channel,
+            stagingDirectory_, std::move(callbacks));
+        updateAgentIpc_ = std::make_unique<UpdateAgentIpc>(
+            updaterSupervisor_, *updateBroker_, stagingDirectory_);
+    }
+
+    std::filesystem::path UpdateInstallRoot() const {
+        if (localInstallInfo_ &&
+            localInstallInfo_->channel == UpdateChannel::Portable) {
+            return updaterDirectory_.parent_path();
+        }
+        return updaterDirectory_;
+    }
+
+    ProtocolMessage Handle(const ProtocolMessage& request,
+                           const ServiceIpcClientContext& client) {
+        if (request.type == MessageType::UpdateAgentStatus) {
+            if (updateAgentIpc_) {
+                return updateAgentIpc_->Handle(request, client);
+            }
+            return ErrorReply(request, ERROR_INVALID_STATE);
+        }
+        if (request.type == MessageType::CheckForUpdates ||
+            request.type == MessageType::GetUpdateStatus ||
+            request.type == MessageType::ShowUpdater ||
+            request.type == MessageType::ApplyStagedUpdate) {
+            if (updateBroker_) {
+                return updateBroker_->Handle(request, client.interactiveUser);
+            }
+            return ErrorReply(request, ERROR_FILE_NOT_FOUND);
+        }
         switch (request.type) {
         case MessageType::GetStatus:
             return Reply(request, StatusPayload(login_.Status()));
@@ -409,6 +556,12 @@ private:
         return Reply(request, L"{\"ok\":false}");
     }
 
+    ProtocolMessage ErrorReply(const ProtocolMessage& request,
+                               DWORD errorCode) const {
+        return {kProtocolVersion, request.type, request.requestId,
+                "{\"errorCode\":" + std::to_string(errorCode) + "}"};
+    }
+
     ProtocolMessage Reply(const ProtocolMessage& request,
                           std::wstring_view payload) const {
         return {kProtocolVersion, request.type, request.requestId,
@@ -445,6 +598,15 @@ private:
     LoginService login_;
     ServiceIpcServer ipc_;
     NetworkMonitor network_;
+    std::filesystem::path updaterDirectory_;
+    std::filesystem::path stagingDirectory_;
+    WindowsUpdaterProcessHost updaterProcessHost_;
+    UpdaterProcessSupervisor updaterSupervisor_;
+    WindowsUpdateApplyProcessHost updateApplyProcessHost_;
+    std::wstring updateConfigError_;
+    std::optional<LocalInstallInfo> localInstallInfo_;
+    std::unique_ptr<UpdateBroker> updateBroker_;
+    std::unique_ptr<UpdateAgentIpc> updateAgentIpc_;
     std::mutex loginWorkerMutex_;
     std::condition_variable loginWorkerCondition_;
     bool loginWorkerStopping_{false};

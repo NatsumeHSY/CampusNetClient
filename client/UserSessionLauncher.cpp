@@ -8,6 +8,8 @@
 #include <wtsapi32.h>
 
 #include <vector>
+#include <algorithm>
+#include <cwchar>
 
 #pragma comment(lib, "Advapi32.lib")
 #pragma comment(lib, "Userenv.lib")
@@ -48,19 +50,38 @@ std::wstring QuoteExecutable(const std::filesystem::path& executable) {
     return quoted;
 }
 
-std::vector<wchar_t> AddHiddenUiMarker(LPVOID environment) {
+std::vector<wchar_t> AddEnvironmentValues(
+    LPVOID environment,
+    const std::vector<std::pair<std::wstring, std::wstring>>& extraEnvironment) {
     const auto* source = static_cast<const wchar_t*>(environment);
-    std::size_t length = 0;
-    while (!(source[length] == L'\0' && source[length + 1] == L'\0')) {
-        ++length;
+    std::vector<std::wstring> entries;
+    for (const wchar_t* current = source; *current != L'\0';
+         current += wcslen(current) + 1) {
+        entries.emplace_back(current);
     }
-    ++length;
-
-    std::vector<wchar_t> result(source, source + length);
-    constexpr wchar_t marker[] = L"CAMPUSNET_UI_START_HIDDEN=1";
-    result.insert(result.end(), marker, marker + ARRAYSIZE(marker) - 1);
+    const auto setValue = [&](std::wstring_view name, std::wstring_view value) {
+        entries.erase(std::remove_if(entries.begin(), entries.end(),
+            [&](const std::wstring& entry) {
+                const auto equal = entry.find(L'=');
+                return equal != std::wstring::npos && equal != 0 &&
+                    CompareStringOrdinal(entry.data(), static_cast<int>(equal),
+                        name.data(), static_cast<int>(name.size()), TRUE) == CSTR_EQUAL;
+            }), entries.end());
+        entries.emplace_back(std::wstring(name) + L"=" + std::wstring(value));
+    };
+    setValue(L"CAMPUSNET_UI_START_HIDDEN", L"1");
+    for (const auto& [name, value] : extraEnvironment) setValue(name, value);
+    std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+        return CompareStringOrdinal(left.c_str(), -1, right.c_str(), -1, TRUE) ==
+               CSTR_LESS_THAN;
+    });
+    std::vector<wchar_t> result;
+    for (const auto& entry : entries) {
+        result.insert(result.end(), entry.begin(), entry.end());
+        result.push_back(L'\0');
+    }
     result.push_back(L'\0');
-    result.push_back(L'\0');
+    if (entries.empty()) result.push_back(L'\0');
     return result;
 }
 
@@ -75,7 +96,8 @@ bool UserSessionLauncher::HasInteractiveUser() {
 }
 
 bool UserSessionLauncher::LaunchInActiveSession(
-    const std::filesystem::path& executable, std::wstring& error) {
+    const std::filesystem::path& executable, std::wstring& error,
+    const std::vector<std::pair<std::wstring, std::wstring>>& extraEnvironment) {
     error.clear();
     if (executable.empty() || !std::filesystem::exists(executable)) {
         error = L"the UI executable does not exist";
@@ -108,7 +130,8 @@ bool UserSessionLauncher::LaunchInActiveSession(
         error = L"the interactive environment could not be created";
         return false;
     }
-    const auto environmentWithMarker = AddHiddenUiMarker(environment);
+    const auto environmentWithMarker = AddEnvironmentValues(environment,
+                                                             extraEnvironment);
 
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);

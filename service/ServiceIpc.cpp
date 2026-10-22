@@ -6,6 +6,9 @@
 #include <windows.h>
 #include <sddl.h>
 
+#include <array>
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 #pragma comment(lib, "Advapi32.lib")
@@ -23,12 +26,27 @@ public:
     Handle(const Handle&) = delete;
     Handle& operator=(const Handle&) = delete;
     HANDLE get() const { return value_; }
+    HANDLE* Put() { return &value_; }
     explicit operator bool() const {
         return value_ != INVALID_HANDLE_VALUE && value_ != nullptr;
     }
 
 private:
     HANDLE value_;
+};
+
+class PipeClientImpersonation final {
+public:
+    PipeClientImpersonation() = default;
+    ~PipeClientImpersonation() {
+        if (active_) {
+            RevertToSelf();
+        }
+    }
+    void SetActive() { active_ = true; }
+
+private:
+    bool active_ = false;
 };
 
 bool ReadExact(HANDLE pipe, void* buffer, DWORD size) {
@@ -88,11 +106,90 @@ bool WriteFrame(HANDLE pipe, const std::vector<std::uint8_t>& frame) {
 PSECURITY_DESCRIPTOR MakePipeSecurity() {
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)", SDDL_REVISION_1,
+            L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)(A;;GA;;;RC)",
+            SDDL_REVISION_1,
             &descriptor, nullptr)) {
         return nullptr;
     }
     return descriptor;
+}
+
+ServiceIpcClientContext InspectClient(HANDLE pipe) {
+    ServiceIpcClientContext context;
+    if (!GetNamedPipeClientProcessId(pipe, &context.processId) ||
+        context.processId == 0) {
+        return context;
+    }
+    if (!ImpersonateNamedPipeClient(pipe)) {
+        return context;
+    }
+    PipeClientImpersonation impersonation;
+    impersonation.SetActive();
+    Handle token;
+    if (!OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, token.Put())) {
+        return context;
+    }
+
+    DWORD returned = 0;
+    if (!GetTokenInformation(token.get(), TokenSessionId, &context.sessionId,
+                             sizeof(context.sessionId), &returned)) {
+        return context;
+    }
+    BOOL restricted = FALSE;
+    if (GetTokenInformation(token.get(), TokenIsRestricted, &restricted,
+                            sizeof(restricted), &returned)) {
+        context.restrictedToken = restricted != FALSE;
+    }
+
+    std::vector<std::uint8_t> userBuffer(SECURITY_MAX_SID_SIZE +
+                                         sizeof(TOKEN_USER));
+    if (GetTokenInformation(token.get(), TokenUser, userBuffer.data(),
+                            static_cast<DWORD>(userBuffer.size()), &returned)) {
+        auto* user = reinterpret_cast<TOKEN_USER*>(userBuffer.data());
+        std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> systemSid{};
+        DWORD sidSize = static_cast<DWORD>(systemSid.size());
+        if (CreateWellKnownSid(WinLocalSystemSid, nullptr, systemSid.data(),
+                               &sidSize)) {
+            context.systemUser = EqualSid(user->User.Sid, systemSid.data()) != FALSE;
+        }
+        std::vector<std::uint8_t> restrictedBuffer;
+        DWORD restrictedSize = 0;
+        GetTokenInformation(token.get(), TokenRestrictedSids, nullptr, 0,
+                            &restrictedSize);
+        if (restrictedSize >= sizeof(TOKEN_GROUPS)) {
+            restrictedBuffer.resize(restrictedSize);
+            if (GetTokenInformation(token.get(), TokenRestrictedSids,
+                                    restrictedBuffer.data(), restrictedSize,
+                                    &returned)) {
+                auto* groups = reinterpret_cast<TOKEN_GROUPS*>(
+                    restrictedBuffer.data());
+                std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> restrictedCode{};
+                sidSize = static_cast<DWORD>(restrictedCode.size());
+                if (CreateWellKnownSid(WinRestrictedCodeSid, nullptr,
+                                       restrictedCode.data(), &sidSize)) {
+                    for (DWORD index = 0; index < groups->GroupCount; ++index) {
+                        if (EqualSid(groups->Groups[index].Sid,
+                                     restrictedCode.data())) {
+                            context.restrictedCodeSid = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> interactiveSid{};
+        sidSize = static_cast<DWORD>(interactiveSid.size());
+        if (CreateWellKnownSid(WinInteractiveSid, nullptr,
+                               interactiveSid.data(), &sidSize)) {
+            BOOL isMember = FALSE;
+            if (CheckTokenMembership(token.get(), interactiveSid.data(),
+                                     &isMember)) {
+                context.interactiveUser = isMember != FALSE &&
+                                          context.sessionId != 0;
+            }
+        }
+    }
+    return context;
 }
 
 } // namespace
@@ -107,6 +204,17 @@ bool ServiceIpcServer::Start(Handler handler) {
     stopping_.store(false);
     thread_ = std::thread(&ServiceIpcServer::Run, this);
     return true;
+}
+
+bool ServiceIpcServer::Start(LegacyHandler handler) {
+    if (!handler) {
+        return false;
+    }
+    return Start([handler = std::move(handler)](
+                     const ProtocolMessage& request,
+                     const ServiceIpcClientContext&) {
+        return handler(request);
+    });
 }
 
 void ServiceIpcServer::Stop() {
@@ -166,7 +274,8 @@ void ServiceIpcServer::Run() {
             continue;
         }
 
-        const ProtocolMessage response = handler_(*request);
+        const ServiceIpcClientContext client = InspectClient(pipe.get());
+        const ProtocolMessage response = handler_(*request, client);
         const auto responseFrame = FrameMessage(response);
         WriteFrame(pipe.get(), responseFrame);
         FlushFileBuffers(pipe.get());

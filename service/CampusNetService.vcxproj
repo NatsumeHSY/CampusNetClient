@@ -12,16 +12,23 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <PropertyGroup Label="UserMacros" /><PropertyGroup><CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot><CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot><OutDir>$(CampusNetPackageRoot)\bin\</OutDir><IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir></PropertyGroup>
-  <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem></Link></ItemDefinitionGroup>
+  <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;$(ProjectDir)..\updater;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem><AdditionalDependencies>Advapi32.lib;Userenv.lib;Bcrypt.lib;Shell32.lib;Ole32.lib;%(AdditionalDependencies)</AdditionalDependencies><ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile><LinkIncremental>false</LinkIncremental></Link></ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ServiceMain.cpp" />
     <ClCompile Include="HttpPortalClient.cpp" />
     <ClCompile Include="PortalNetworkIdentity.cpp" />
     <ClCompile Include="ServiceIpc.cpp" />
+    <ClCompile Include="UpdateAgentIpc.cpp" />
+    <ClCompile Include="UpdateApplyProcessHost.cpp" />
     <ClCompile Include="ServiceState.cpp" />
     <ClCompile Include="LoginService.cpp" />
     <ClCompile Include="NetworkMonitor.cpp" />
     <ClCompile Include="..\client\UserSessionLauncher.cpp" />
+    <ClCompile Include="UpdaterProcessSupervisor.cpp" />
+    <ClCompile Include="UpdateBroker.cpp" />
+    <ClCompile Include="..\updater\UpdateAgentStatus.cpp" />
+    <ClCompile Include="..\updater\UpdateIntegrity.cpp" />
+    <ClCompile Include="..\updater\UpdateManifest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\shared\CampusNetShared.vcxproj"><Project>{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}</Project></ProjectReference>

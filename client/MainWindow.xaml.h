@@ -10,6 +10,7 @@
 #include "ClientViewModel.h"
 #include "ServiceManager.h"
 #include "TrayIcon.h"
+#include "UpdateCheckPresentation.h"
 #include "WebViewLogin.h"
 
 #include <winrt/Microsoft.UI.Dispatching.h>
@@ -53,9 +54,13 @@ struct MainWindow : MainWindowT<MainWindow> {
 
     void ShowFromTray();
     void HideToTray();
+    void OnWindowShown();
 
 private:
     void RefreshStatus();
+    void RequestUpdateCheck();
+    void CompleteUpdateCheck();
+    void EndUpdateOverlay();
     void RefreshLocalNetworkInfo();
     void RequestNetworkStatusRefresh();
     void UpdateLoginButton();
@@ -78,11 +83,15 @@ private:
     std::unique_ptr<TrayIcon> tray_;
     std::unique_ptr<WebView2LoginHost> webView_;
     Microsoft::UI::Dispatching::DispatcherQueue dispatcher_{nullptr};
+    Microsoft::UI::Dispatching::DispatcherQueueTimer updateOverlayTimer_{nullptr};
     std::thread pollThread_;
     std::thread loginRequestThread_;
     std::shared_ptr<std::atomic<bool>> lifetimeGuard_{
         std::make_shared<std::atomic<bool>>(true)};
     std::atomic<bool> pollStop_{false};
+    std::atomic<bool> updateCheckRequested_{false};
+    std::atomic<bool> updateCheckInFlight_{false};
+    UpdateCheckPresentation updateCheckPresentation_;
     std::optional<bool> internetReachable_;
     bool loginSucceeded_{false};
     bool loginAttemptPending_{false};

@@ -14,7 +14,7 @@ struct App : AppT<App> {
         Microsoft::UI::Xaml::LaunchActivatedEventArgs const& args);
 
 private:
-    Microsoft::UI::Xaml::Window window_{nullptr};
+    winrt::CampusNetClient::MainWindow window_{nullptr};
     ClientStartupMode startupMode_{ClientStartupMode::Interactive};
 };
 

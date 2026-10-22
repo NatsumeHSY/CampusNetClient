@@ -179,4 +179,10 @@
                                          BuildRoot="$(CampusNetBuildRoot)"
                                          ConfigurationName="$(Configuration)" />
   </Target>
+
+  <Target Name="CampusNetWriteLocalVersionJson"
+          AfterTargets="CampusNetNormalizePackageLayout"
+          Condition="Exists('$(CampusNetPackageRoot)\bin\CampusNetClient.exe') and Exists('$(CampusNetPackageRoot)\bin\CampusNetService.exe')">
+    <Exec Command="pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\tools\Write-LocalVersionJson.ps1&quot; -Channel portable -OutputPath &quot;$(CampusNetPackageRoot)\bin\version.json&quot;" />
+  </Target>
 </Project>

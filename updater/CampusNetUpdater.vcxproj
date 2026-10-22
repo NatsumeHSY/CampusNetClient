@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A657D11B-C7D3-4A24-9A9E-10657A1BC1D0}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>CampusNetUpdater</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot>
+    <CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot>
+    <OutDir>$(CampusNetPackageRoot)\bin\</OutDir>
+    <IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>_WINDOWS;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\client;$(ProjectDir)..\shared;$(ProjectDir)..\third_party\miniz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>Comctl32.lib;Winhttp.lib;Bcrypt.lib;Advapi32.lib;Ole32.lib;Msi.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="UpdaterMain.cpp" />
+    <ClCompile Include="UpdaterAgent.cpp" />
+    <ClCompile Include="UpdaterRole.cpp" />
+    <ClCompile Include="UpdateWindow.cpp" />
+    <ClCompile Include="UpdateManifest.cpp" />
+    <ClCompile Include="UpdateAgentStatus.cpp" />
+    <ClCompile Include="UpdateIntegrity.cpp" />
+    <ClCompile Include="UpdateDownloader.cpp" />
+    <ClCompile Include="WinHttpUpdateTransport.cpp" />
+    <ClCompile Include="PortableUpdateApply.cpp" />
+    <ClCompile Include="MsiUpdateApply.cpp" />
+    <ClCompile Include="UpdaterApply.cpp" />
+    <ClCompile Include="..\third_party\miniz\miniz.c" />
+    <ClCompile Include="..\third_party\miniz\miniz_tdef.c" />
+    <ClCompile Include="..\third_party\miniz\miniz_tinfl.c" />
+    <ClCompile Include="..\third_party\miniz\miniz_zip.c" />
+    <ClCompile Include="..\client\ClientIpc.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="UpdaterRole.h" />
+    <ClInclude Include="UpdaterAgent.h" />
+    <ClInclude Include="UpdateWindow.h" />
+    <ClInclude Include="UpdateManifest.h" />
+    <ClInclude Include="UpdateAgentStatus.h" />
+    <ClInclude Include="UpdateIntegrity.h" />
+    <ClInclude Include="UpdateDownloader.h" />
+    <ClInclude Include="WinHttpUpdateTransport.h" />
+    <ClInclude Include="PortableUpdateApply.h" />
+    <ClInclude Include="MsiUpdateApply.h" />
+    <ClInclude Include="UpdaterApply.h" />
+    <ClInclude Include="..\client\ClientIpc.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="Updater.manifest" />
+    <ResourceCompile Include="Updater.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\shared\CampusNetShared.vcxproj">
+      <Project>{F0D8AB47-EB9A-4C04-946B-CB42A7C14B0C}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

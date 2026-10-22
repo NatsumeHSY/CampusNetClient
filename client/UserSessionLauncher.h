@@ -4,6 +4,8 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
+#include <vector>
 
 class UserSessionLauncher {
 public:
@@ -14,6 +16,8 @@ public:
     // supplied command-line arguments. This is intended for the Service's
     // UI handoff and does not create a shell, scheduled task, or script.
     static bool LaunchInActiveSession(const std::filesystem::path& executable,
-                                      std::wstring& error);
+                                      std::wstring& error,
+                                      const std::vector<std::pair<std::wstring,
+                                                                  std::wstring>>& extraEnvironment = {});
 };
 
