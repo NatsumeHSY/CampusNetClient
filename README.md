@@ -50,7 +50,7 @@ UAC/会话边界：服务的浏览器兜底路径目前通过 `CreateProcessAsUs
 - 重复手动启动会唤醒已有实例；服务的隐藏启动不会强行显示已有 UI。
 - 退出 UI 不会停止 Windows 服务。
 
-## 构建和发布
+## 构建
 
 需要 Visual Studio 2022 C++ 工作负载、v143、Windows SDK 10.0.26100.0、Windows App SDK NuGet 依赖，以及 WiX Toolset v4（MSI 构建）。所有构建产物放在工作区根目录 `build`，不要放入原 Python 项目的 `release`。
 
@@ -67,25 +67,6 @@ try {
     subst T: /d
 }
 ```
-
-Release 绿色包位于 `build\package\Release\`，其根目录包含启动器，运行文件在 `bin\`。更新发布的本地准备顺序如下（以下 PowerShell 脚本是构建/打包工具，不是客户端 CLI）：
-
-```powershell
-pwsh -File tools\New-PortableBundle.ps1
-pwsh -File installer\build-msi.ps1 `
-  -PackageBinDir build\package\Release\bin
-pwsh -File tools\New-UpdateManifest.ps1 `
-  -PortablePackageRoot build\package\Release `
-  -PortableArchive build\package\CampusNetClient-0.1.0-portable.zip `
-  -MsiPackage build\package\CampusNetClient-0.1.0.msi `
-  -MsiFileInventory build\package\CampusNetClient-0.1.0.msi.files.json `
-  -ReleaseTag v0.1.0 `
-  -ReleaseNotes '更新说明' -Force
-```
-
-先确认 `version.props`，构建绿色包和 MSI；随后生成根目录 `version.json`，把两个构建产物上传到脚本对应的 GitHub Release tag，并发布/推送包含该清单的仓库版本。资产文件名、tag 与清单 URL 必须一致。生成器不会读取或写入 GitHub token，也不会执行 GitHub 发布操作。不要把 `.ght` 或其他凭据放入仓库。
-
-清单生成器会核对便携 ZIP 和包目录内容、MSI 安装文件清单、版本号、文件路径、大小和 SHA-256；它拒绝 PDB/中间文件、路径穿越、符号链接/重解析点以及无效发布资产。若仓库远端已存在 `version.json`，`-Force` 会原子覆盖本地清单；请在发布前审核差异。
 
 ## 验证边界与常见问题
 
