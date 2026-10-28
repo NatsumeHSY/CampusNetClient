@@ -1,4 +1,6 @@
 .vs/
+/docs/
+/.superpowers/
 **/build/
 **/bin/
 **/obj/
