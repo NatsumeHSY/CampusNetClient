@@ -1,14 +1,7 @@
-# MSI 构建
+# Windows Installer 安装包
 
-使用 `build-msi.ps1` 构建非 MSIX 的传统 Windows Installer 包。脚本从 `desktop/version.props` 读取唯一 SemVer，接收已构建的 Release `bin` 目录，并在仓库外、工作目录根部的 `build\package` 生成 MSI 和同目录 `*.msi.files.json` 安装文件哈希清单。以下命令在工作目录根部执行：
+CampusNetClient MSI 使用传统 Windows Installer 技术，不采用 MSIX。安装包包含 WinUI 客户端、校园网服务及自动更新组件。
 
-```powershell
-pwsh -File CampusNetClient\desktop\installer\build-msi.ps1 `
-  -PackageBinDir build\package\Release\bin
-```
+安装时需要管理员授权。安装程序会注册 `CampusNetService`，使其能够随 Windows 启动并执行网络监测和自动登录。校园网账号密码由服务保存到 Windows Credential Manager。
 
-需要 WiX Toolset v4 的 `wix.exe` 可用；也可以通过 `-WixPath` 指向其完整路径。`-OutputPath` 可覆盖 MSI 输出位置；若目标文件已经存在，默认拒绝覆盖，只有显式传入 `-Force` 才会覆盖。临时 MSI payload 会放在目标 `build\package` 的唯一子目录，完成后只清理脚本创建的临时目录。
-
-脚本把 SemVer 的 major/minor/patch 映射为 MSI ProductVersion（major/minor 最大 255，patch 最大 65535），预发布与构建元数据不参与 MSI 版本比较。ProductCode 从 MSI 数值版本稳定派生，使同一 MSI 数值版本能够进行 `REINSTALL=ALL REINSTALLMODE=vomus` 修复；WiX 的 `AllowDowngrades` 允许更新器按仓库清单回退到较低版本。此策略只适用于由该脚本构建且共享 UpgradeCode 的 CampusNetClient MSI。
-
-脚本构建的安装内容包括 WinUI 客户端文件、服务、更新器、MSI 渠道 `version.json` 和服务安装元数据。MSI 由 SYSTEM apply helper 通过 Windows Installer API 应用；不会运行 `msiexec.exe` 命令行。开发机不应直接执行安装、降级或修复测试；这些场景应在干净 Windows VM 中验收。
+更新和修复由 Windows Installer 应用；卸载可通过 Windows“已安装的应用”完成。服务安装与系统配置变更需要管理员权限。
