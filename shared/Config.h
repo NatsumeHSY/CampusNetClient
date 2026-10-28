@@ -10,6 +10,7 @@ struct InternetCheckEndpoint {
 };
 
 struct AppConfig {
+    std::wstring carrier{L"telecom"};
     std::wstring gateway{L"10.10.12.13"};
     std::wstring portalUrl{L"http://10.10.12.13/"};
     std::vector<InternetCheckEndpoint> internetChecks{
@@ -32,3 +33,4 @@ AppConfig LoadConfig(const std::filesystem::path& path);
 bool SaveConfig(const std::filesystem::path& path, const AppConfig& config);
 bool ValidateConfig(const AppConfig& config, std::wstring& error);
 std::filesystem::path ConfigPath();
+std::wstring LoginPortalUrl(const AppConfig& config);

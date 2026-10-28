@@ -121,6 +121,11 @@
                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                             <TextBlock Text="凭据由服务保存并用于自动登录。"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="CarrierBox" Header="校园网套餐"
+                                      SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="电信" />
+                                <ComboBoxItem Content="移动" />
+                            </ComboBox>
                             <TextBox x:Name="UsernameBox" Header="校园网账号"
                                      PlaceholderText="输入账号" />
                             <PasswordBox x:Name="PasswordBox" Header="校园网密码"
@@ -223,11 +228,15 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel Spacing="14" HorizontalAlignment="Center">
-                    <ProgressRing IsActive="True"
+                    <ProgressRing x:Name="UpdateCheckProgressRing" IsActive="True"
                                   Width="42"
                                   Height="42"
                                   HorizontalAlignment="Center" />
-                    <TextBlock Text="正在检查更新，请稍候…"
+                    <FontIcon x:Name="UpdateResultIcon"
+                              FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                              FontSize="42" Visibility="Collapsed"
+                              HorizontalAlignment="Center" />
+                    <TextBlock x:Name="UpdateCheckResultText" Text="正在检查更新，请稍候…"
                                FontSize="16"
                                HorizontalTextAlignment="Center"
                                Foreground="{ThemeResource TextFillColorPrimaryBrush}" />

@@ -28,6 +28,7 @@ struct BrowserFallbackRequest {
     std::wstring password;
     bool uiAutostart{true};
     std::chrono::milliseconds timeout{std::chrono::seconds(30)};
+    bool mobile{false};
 };
 
 struct WebViewLoginResult {

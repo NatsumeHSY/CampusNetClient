@@ -127,6 +127,7 @@ std::wstring WebViewLoginCoordinator::BuildAutomationScript() const {
            L"if(!f)return 'missing-form';"
            L"const u=f.elements['userId']||document.getElementById('userId');"
            L"const p=f.elements['passwd']||document.getElementById('passwd')||"
+           L"f.elements['passwd1']||document.querySelector('input[type=password]')||"
            L"f.elements['password']||document.getElementById('password');"
            L"if(!u||!p)return 'missing-field';"
            L"u.value=\"" + username + L"\";"
@@ -134,6 +135,12 @@ std::wstring WebViewLoginCoordinator::BuildAutomationScript() const {
            L"const t=f.elements['terms']||document.getElementById('terms')||"
            L"document.querySelector(\"input[type=checkbox][name*=term i]\");"
            L"if(t&&!t.checked)t.click();"
+           + std::wstring(request_.mobile ?
+               L"for(const e of document.querySelectorAll('#goLoginForm input[name=passwd1],#passwd1,input[type=password]')){e.value=p.value;e.dispatchEvent(new Event('input',{bubbles:true}));}"
+               L"if(!f.elements['passwd']){const h=document.createElement('input');h.type='hidden';h.name='passwd';h.value=p.value;f.appendChild(h);}"
+               L"const terms=document.getElementById('termsDesc');if(terms&&terms.classList.contains('divCheckBoxNoSel'))terms.click();"
+               L"const q=document.getElementById('urlParameter')||f.elements['urlParameter'];"
+               L"f.action=location.origin+'/webauth.do'+(q&&q.value?'?'+q.value:'');" : L"") +
            L"if(typeof f.requestSubmit==='function')f.requestSubmit();"
            L"else f.submit();"
            L"return 'submitted';"
@@ -267,6 +274,8 @@ bool WebView2LoginHost::Start(HWND owner, const BrowserFallbackRequest& request,
                                             L"JSON.stringify({form:!!document.forms['goLoginForm'],"
                                             L"password:!!(document.forms['goLoginForm']&&"
                                             L"(document.forms['goLoginForm'].elements['passwd']||"
+                                            L"document.forms['goLoginForm'].elements['passwd1']||"
+                                            L"document.querySelector('input[type=password]')||"
                                             L"document.forms['goLoginForm'].elements['password']||"
                                             L"document.getElementById('passwd')||"
                                             L"document.getElementById('password')))})",

@@ -476,7 +476,7 @@ private:
             return Reply(request, StatusPayload(login_.Status()));
         case MessageType::GetConfig:
             return Reply(request,
-                         std::wstring(L"{\"gateway\":\"") + JsonEscape(config_.gateway) +
+                         std::wstring(L"{\"carrier\":\"") + config_.carrier + L"\",\"gateway\":\"" + JsonEscape(config_.gateway) +
                              L"\",\"portalUrl\":\"" +
                              JsonEscape(config_.portalUrl) + L"\",\"uiAutostart\":" +
                              std::wstring(config_.uiAutostart ? L"true" : L"false") +
@@ -537,7 +537,17 @@ private:
                 RequestStop();
             }
             return Reply(request, L"{\"ok\":true}");
-        case MessageType::UpdateConfig:
+        case MessageType::UpdateConfig: {
+            const auto carrier = ExtractString(request.payload, "carrier");
+            if (carrier != L"telecom" && carrier != L"mobile")
+                return Reply(request, L"{\"ok\":false}");
+            auto updated = config_;
+            updated.carrier = carrier;
+            if (!SaveConfig(ConfigPath(), updated)) return Reply(request, L"{\"ok\":false}");
+            config_ = updated;
+            login_.SetConfig(config_);
+            return Reply(request, L"{\"ok\":true}");
+        }
         case MessageType::GetLogs:
             return Reply(request, L"{\"ok\":true}");
         case MessageType::BrowserLoginRequest: {
@@ -549,7 +559,8 @@ private:
                 request,
                 std::wstring(L"{\"ok\":true,\"username\":\"") +
                     JsonEscape(credentials->username) +
-                    L"\",\"password\":\"" +
+                    L"\",\"portalUrl\":\"" + JsonEscape(LoginPortalUrl(config_)) +
+                    L"\",\"carrier\":\"" + config_.carrier + L"\",\"password\":\"" +
                     JsonEscape(credentials->password) + L"\"}");
         }
         }

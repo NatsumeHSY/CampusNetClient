@@ -35,6 +35,14 @@ int wmain() {
 #endif
     const AppConfig defaults = LoadDefaultConfig();
     assert(defaults.gateway == L"10.10.12.13");
+    assert(defaults.carrier == L"telecom");
+    AppConfig mobile = defaults;
+    mobile.carrier = L"mobile";
+    assert(LoginPortalUrl(mobile) == L"http://1.1.1.1/");
+    const auto mobilePath = std::filesystem::temp_directory_path() / L"campus-net-mobile-test.json";
+    assert(SaveConfig(mobilePath, mobile));
+    assert(LoadConfig(mobilePath).carrier == L"mobile");
+    std::filesystem::remove(mobilePath);
     assert(defaults.portalUrl == L"http://10.10.12.13/");
     assert(defaults.maxLoginAttempts == 1);
     assert(defaults.uiAutostart);

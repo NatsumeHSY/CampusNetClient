@@ -40,6 +40,11 @@ LoginRunSummary LoginService::RunOnce() {
         std::atomic<bool>& running;
         ~ResetRunning() { running.store(false); }
     } reset{running_};
+    AppConfig config;
+    {
+        std::scoped_lock lock(mutex_);
+        config = config_;
+    }
 
     {
         std::scoped_lock lock(mutex_);
@@ -57,16 +62,16 @@ LoginRunSummary LoginService::RunOnce() {
     }
 
     HttpLoginResult lastLogin;
-    for (int attempt = 0; attempt < config_.maxLoginAttempts; ++attempt) {
+    for (int attempt = 0; attempt < config.maxLoginAttempts; ++attempt) {
         state_.Update(LoginState::HttpLogin, L"submitting HTTP portal login");
-        lastLogin = transport_.Login(config_, *stored);
+        lastLogin = transport_.Login(config, *stored);
         if (lastLogin.outcome == HttpLoginOutcome::Cancelled) {
             return Finish(LoginRunResult::Failed, LoginState::Failed,
                           L"HTTP portal login cancelled");
         }
         if (lastLogin.outcome != HttpLoginOutcome::Success) {
-            if (attempt + 1 < config_.maxLoginAttempts) {
-                sleeper_(config_.retryDelayMs);
+            if (attempt + 1 < config.maxLoginAttempts) {
+                sleeper_(config.retryDelayMs);
             }
             continue;
         }

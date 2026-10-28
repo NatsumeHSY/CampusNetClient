@@ -37,6 +37,7 @@ struct ParsedUrl {
 };
 
 struct Response {
+    std::wstring finalUrl;
     bool transportOk{false};
     unsigned statusCode{0};
     std::wstring location;
@@ -196,23 +197,24 @@ std::string ToUtf8(std::wstring_view value) {
 
 Response Request(std::wstring_view url, std::wstring_view method,
                  std::wstring_view body, std::wstring_view extraHeaders,
-                 int timeoutMs) {
+                 int timeoutMs, HINTERNET sharedSession = nullptr) {
     ParsedUrl parsed;
     if (!ParseUrl(url, parsed)) {
         return {};
     }
 
-    WinHttpHandle session(WinHttpOpen(
+    WinHttpHandle session(sharedSession ? nullptr : WinHttpOpen(
         L"CampusNetClient/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
-    if (!session) {
+    HINTERNET sessionHandle = sharedSession ? sharedSession : session.get();
+    if (!sessionHandle) {
         return {};
     }
-    WinHttpSetTimeouts(session.get(), timeoutMs, timeoutMs, timeoutMs,
+    WinHttpSetTimeouts(sessionHandle, timeoutMs, timeoutMs, timeoutMs,
                        timeoutMs);
 
     WinHttpHandle connection(
-        WinHttpConnect(session.get(), parsed.host.c_str(), parsed.port, 0));
+        WinHttpConnect(sessionHandle, parsed.host.c_str(), parsed.port, 0));
     if (!connection) {
         return {};
     }
@@ -256,6 +258,12 @@ Response Request(std::wstring_view url, std::wstring_view method,
     }
 
     Response response;
+    DWORD urlBytes = 0;
+    WinHttpQueryOption(request.get(), WINHTTP_OPTION_URL, nullptr, &urlBytes);
+    std::vector<wchar_t> finalUrl(urlBytes / sizeof(wchar_t) + 1, L'\0');
+    if (WinHttpQueryOption(request.get(), WINHTTP_OPTION_URL, finalUrl.data(), &urlBytes)) {
+        response.finalUrl = finalUrl.data();
+    }
     response.transportOk = true;
     response.statusCode = status;
     response.location = QueryHeader(request.get(), WINHTTP_QUERY_LOCATION);
@@ -471,6 +479,35 @@ HttpLoginResult HttpPortalClient::Login(const AppConfig& config,
                                         const Credentials& credentials) const {
     if (cancelled_.load()) {
         return {HttpLoginOutcome::Cancelled, 0, {}, L"Login cancelled"};
+    }
+
+    if (config.carrier == L"mobile") {
+        WinHttpHandle session(WinHttpOpen(L"CampusNetClient/1.0",
+            WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
+            WINHTTP_NO_PROXY_BYPASS, 0));
+        if (!session) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal session creation failed"};
+        const auto page = Request(LoginPortalUrl(config), L"GET", {}, {},
+                                  config.httpTimeoutMs, session.get());
+        if (!page.transportOk) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal is unreachable"};
+        const auto form = ParseLoginForm(page.body);
+        if (!form) {
+            const auto internet = CheckInternet(config);
+            if (!internet.publicIp.empty() || internet.statusCode == 204) return {HttpLoginOutcome::Success, page.statusCode, {}, L"Network already authenticated"};
+            return {HttpLoginOutcome::InvalidResponse, page.statusCode, {}, L"Mobile portal is missing goLoginForm"};
+        }
+        const auto pageUrl = page.finalUrl.empty() ? LoginPortalUrl(config) : page.finalUrl;
+        const auto login = Request(MobileLoginAction(*form, pageUrl), L"POST",
+            BuildMobileLoginBody(*form, credentials),
+            L"Content-Type: application/x-www-form-urlencoded\r\nReferer: " + pageUrl + L"\r\n",
+            config.httpTimeoutMs, session.get());
+        if (!login.transportOk) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal POST failed"};
+        for (int i = 0; i < config.verificationAttempts && !cancelled_.load(); ++i) {
+            const auto internet = CheckInternet(config);
+            if (!internet.publicIp.empty() || internet.statusCode == 204) return {HttpLoginOutcome::Success, login.statusCode, {}, L"Mobile network authenticated"};
+            if (i + 1 < config.verificationAttempts) std::this_thread::sleep_for(std::chrono::milliseconds(config.verifyIntervalMs));
+        }
+        return {cancelled_.load() ? HttpLoginOutcome::Cancelled : HttpLoginOutcome::LoginRejected,
+                login.statusCode, {}, L"Mobile authentication failed: Internet remains unreachable"};
     }
 
     ParsedUrl portal;

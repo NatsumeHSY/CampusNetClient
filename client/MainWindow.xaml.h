@@ -59,7 +59,8 @@ struct MainWindow : MainWindowT<MainWindow> {
 private:
     void RefreshStatus();
     void RequestUpdateCheck();
-    void CompleteUpdateCheck();
+    void CompleteUpdateCheck(const std::string& phase);
+    void ShowUpdateCheckResult(std::string_view phase);
     void EndUpdateOverlay();
     void RefreshLocalNetworkInfo();
     void RequestNetworkStatusRefresh();
@@ -92,11 +93,14 @@ private:
     std::atomic<bool> updateCheckRequested_{false};
     std::atomic<bool> updateCheckInFlight_{false};
     UpdateCheckPresentation updateCheckPresentation_;
+    bool updateCheckTimedOut_{false};
+    bool updateResultShowing_{false};
     std::optional<bool> internetReachable_;
     bool loginSucceeded_{false};
     bool loginAttemptPending_{false};
     bool loginAttemptAwaitingRequest_{false};
     bool browserFlowStarted_{false};
+    bool carrierLoaded_{false};
     bool allowWindowClose_{false};
     std::wstring statusIllustrationAsset_;
     winrt::event_token closingToken_{};

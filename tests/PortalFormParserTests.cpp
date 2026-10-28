@@ -31,6 +31,18 @@ int RunPortalFormParserTests() {
 
     const auto form = ParseLoginForm(html);
     assert(form.has_value());
+    const auto mobileBody = BuildMobileLoginBody(*form, {L"a@b", L"p+ word"});
+    const auto externalParameter = ParseLoginForm(
+        LR"(<input id="urlParameter" value="token=abc&amp;act=login"><form id="goLoginForm"><input name="distoken" value="secret"></form>)");
+    assert(externalParameter);
+    assert(MobileLoginAction(*externalParameter, L"http://1.1.1.1:8888/index") ==
+           L"http://1.1.1.1:8888/webauth.do?token=abc&act=login");
+    assert(BuildMobileLoginBody(*externalParameter, {L"user", L"pass"}).find(L"distoken=secret") != std::wstring::npos);
+    assert(mobileBody.find(L"userId=a%40b") != std::wstring::npos);
+    assert(mobileBody.find(L"passwd=p%2B%20word") != std::wstring::npos);
+    assert(mobileBody.find(L"%2540") == std::wstring::npos);
+    assert(MobileLoginAction(*form, L"http://1.1.1.1:8888/index") ==
+           L"http://1.1.1.1:8888/webauth.do?abc&act=LOGINSUCC");
     assert(form->action == L"/webauth.do?urlParameter=abc");
     assert(HasField(*form, L"urlParameter", L"abc&act=LOGINSUCC"));
     assert(HasField(*form, L"queryString", L"a=1&b=2"));

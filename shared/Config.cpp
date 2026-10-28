@@ -158,6 +158,7 @@ AppConfig LoadConfig(const std::filesystem::path& path) {
     const std::string json((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
 
     std::wstring stringValue;
+    if (FindJsonString(json, "carrier", stringValue)) config.carrier = stringValue;
     if (FindJsonString(json, "gateway", stringValue)) config.gateway = stringValue;
     if (FindJsonString(json, "portalUrl", stringValue)) config.portalUrl = stringValue;
     if (config.gateway == L"1.1.1.1") {
@@ -204,6 +205,7 @@ bool SaveConfig(const std::filesystem::path& path, const AppConfig& config) {
         return false;
     }
     output << "{\n"
+           << "  \"carrier\": \"" << EscapeJson(config.carrier) << "\",\n"
            << "  \"gateway\": \"" << EscapeJson(config.gateway) << "\",\n"
            << "  \"portalUrl\": \"" << EscapeJson(config.portalUrl) << "\",\n"
            << "  \"httpTimeoutMs\": " << config.httpTimeoutMs << ",\n"
@@ -220,6 +222,10 @@ bool SaveConfig(const std::filesystem::path& path, const AppConfig& config) {
 }
 
 bool ValidateConfig(const AppConfig& config, std::wstring& error) {
+    if (config.carrier != L"telecom" && config.carrier != L"mobile") {
+        error = L"unsupported carrier";
+        return false;
+    }
     if (config.gateway.empty()) {
         error = L"gateway cannot be empty";
         return false;
@@ -255,4 +261,8 @@ std::filesystem::path ConfigPath() {
         return std::filesystem::current_path() / L"config.json";
     }
     return std::filesystem::path(buffer).parent_path() / L"config.json";
+}
+
+std::wstring LoginPortalUrl(const AppConfig& config) {
+    return config.carrier == L"mobile" ? L"http://1.1.1.1/" : config.portalUrl;
 }

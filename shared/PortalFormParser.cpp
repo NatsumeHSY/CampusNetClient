@@ -255,6 +255,21 @@ std::optional<PortalForm> ParseLoginForm(std::wstring_view html) {
             }
             inputFrom = inputEnd + 1;
         }
+        // Some mobile pages put this action parameter outside the form.
+        if (FindFieldValue(form, L"urlParameter").empty()) {
+            std::size_t scan = 0;
+            while ((scan = FindInsensitive(html, L"<input", scan)) != std::wstring::npos) {
+                const auto end = html.find(L'>', scan);
+                if (end == std::wstring::npos) break;
+                const auto attrs = ParseAttributes(html.substr(scan + 1, end - scan - 1));
+                if (Lower(Attribute(attrs, L"id")) == L"urlparameter" ||
+                    Lower(Attribute(attrs, L"name")) == L"urlparameter") {
+                    form.fields.push_back({L"urlParameter", Attribute(attrs, L"value"), false});
+                    break;
+                }
+                scan = end + 1;
+            }
+        }
         return form;
     }
 }
@@ -310,4 +325,37 @@ std::wstring BuildLoginBody(const PortalForm& form,
            L"&queryString=" + DoubleEncode(queryString) +
            L"&operatorPwd=&operatorUserId=&validcode=&passwordEncrypt=" +
            DoubleEncode(L"false");
+}
+
+std::wstring MobileLoginAction(const PortalForm& form, std::wstring_view pageUrl) {
+    const auto parameter = FindFieldValue(form, L"urlParameter");
+    return ResolveUrl(pageUrl, parameter.empty() ?
+        (form.action.empty() ? L"/webauth.do" : form.action) :
+        L"/webauth.do?" + parameter);
+}
+
+std::wstring BuildMobileLoginBody(const PortalForm& form,
+                                 const Credentials& credentials) {
+    std::wstring body;
+    bool user = false, password = false;
+    auto append = [&](std::wstring_view name, std::wstring_view value) {
+        if (!body.empty()) body += L"&";
+        body += EncodeEscapeDataString(name) + L"=" + EncodeEscapeDataString(value);
+    };
+    for (const auto& field : form.fields) {
+        if (field.disabled) continue;
+        const auto name = Lower(field.name);
+        if (name == L"userid" || name == L"username") {
+            append(field.name, credentials.username);
+            user = true;
+        } else if (name == L"passwd" || name == L"passwd1" || name == L"password") {
+            append(field.name, credentials.password);
+            password = password || name == L"passwd";
+        } else {
+            append(field.name, field.value);
+        }
+    }
+    if (!user) append(L"userId", credentials.username);
+    if (!password) append(L"passwd", credentials.password);
+    return body;
 }

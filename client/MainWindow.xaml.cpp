@@ -479,8 +479,12 @@ MainWindow::MainWindow()
         updateOverlayTimer_.Interval(std::chrono::seconds(10));
         updateOverlayTimer_.IsRepeating(false);
         updateOverlayTimer_.Tick([this](auto const&, auto const&) {
-            if (updateCheckPresentation_.OnTimeout()) {
+            if (updateResultShowing_) {
                 EndUpdateOverlay();
+            } else {
+                updateCheckPresentation_.OnTimeout();
+                updateCheckTimedOut_ = true;
+                ShowUpdateCheckResult({});
             }
         });
         const HANDLE activationEvent = OpenSingleInstanceActivationEvent();
@@ -501,6 +505,7 @@ MainWindow::MainWindow()
                     break;
                 }
                 if (updateCheckRequested_.exchange(false)) {
+                    std::string completedPhase;
                     std::wstring error;
                     ipc_.Call({kProtocolVersion, MessageType::CheckForUpdates,
                                L"ui-update-check", "{}"}, 2500, error);
@@ -516,19 +521,21 @@ MainWindow::MainWindow()
                                 status->payload, "phase");
                             if (phase && (*phase == "upToDate" ||
                                           *phase == "available" ||
+                                          *phase == "downloading" ||
                                           *phase == "failed" ||
                                           *phase == "ready" ||
                                           *phase == "applying")) {
+                                completedPhase = *phase;
                                 break;
                             }
                         }
                         std::this_thread::sleep_for(
                             std::chrono::milliseconds(250));
                     }
-                    dispatcher_.TryEnqueue([this, lifetimeGuard] {
+                    dispatcher_.TryEnqueue([this, lifetimeGuard, completedPhase] {
                         if (lifetimeGuard->load()) {
                             updateCheckInFlight_.store(false);
-                            CompleteUpdateCheck();
+                            CompleteUpdateCheck(completedPhase);
                         }
                     });
                 }
@@ -569,6 +576,14 @@ void MainWindow::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&
 }
 
 void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
+    const std::string carrier = CarrierBox().SelectedIndex() == 1 ? "mobile" : "telecom";
+    std::wstring settingsError;
+    const auto saved = ipc_.Call({kProtocolVersion, MessageType::UpdateConfig,
+        L"ui-carrier", "{\"carrier\":\"" + carrier + "\"}"}, 1500, settingsError);
+    if (!saved || !ExtractJsonBool(saved->payload, "ok").value_or(false)) {
+        SetServiceFeedback(L"套餐保存失败，请确认服务已启动。");
+        return;
+    }
     const bool uiAutostart = UiAutostartToggle().IsOn();
     viewModel_.SetUiAutostart(uiAutostart);
     const std::string enabled = uiAutostart ? "true" : "false";
@@ -601,28 +616,71 @@ void MainWindow::HideToTray() {
 
 void MainWindow::OnWindowShown() {
     const auto action = updateCheckPresentation_.OnWindowShown();
-    if (action.showOverlay) {
-        MainContentScrollViewer().IsEnabled(false);
-        UpdateCheckOverlay().Visibility(Visibility::Visible);
-        if (updateOverlayTimer_ != nullptr) {
-            updateOverlayTimer_.Start();
-        }
-    }
     if (action.requestCheck) {
         RequestUpdateCheck();
     }
 }
 
 void MainWindow::RequestUpdateCheck() {
+    if (updateResultShowing_) return;
     bool expected = false;
     if (updateCheckInFlight_.compare_exchange_strong(expected, true)) {
+        updateCheckTimedOut_ = false;
+        MainContentScrollViewer().IsEnabled(false);
+        UpdateCheckProgressRing().Visibility(Visibility::Visible);
+        UpdateCheckProgressRing().IsActive(true);
+        UpdateResultIcon().Visibility(Visibility::Collapsed);
+        UpdateCheckResultText().Text(L"正在检查更新，请稍候…");
+        UpdateCheckOverlay().Visibility(Visibility::Visible);
+        if (updateOverlayTimer_ != nullptr) {
+            updateOverlayTimer_.Stop();
+            updateOverlayTimer_.Interval(std::chrono::seconds(10));
+            updateOverlayTimer_.Start();
+        }
         updateCheckRequested_.store(true);
     }
 }
 
-void MainWindow::CompleteUpdateCheck() {
-    if (updateCheckPresentation_.OnCheckCompleted()) {
-        EndUpdateOverlay();
+void MainWindow::CompleteUpdateCheck(const std::string& phase) {
+    updateCheckPresentation_.OnCheckCompleted();
+    if (!updateCheckTimedOut_) ShowUpdateCheckResult(phase);
+}
+
+void MainWindow::ShowUpdateCheckResult(std::string_view phase) {
+    const auto result = ClassifyUpdateCheckResult(phase);
+    UpdateCheckProgressRing().IsActive(false);
+    UpdateCheckProgressRing().Visibility(Visibility::Collapsed);
+    auto icon = UpdateResultIcon();
+    const wchar_t* colorResource = L"SystemFillColorCautionBrush";
+    switch (result) {
+    case UpdateCheckResult::UpToDate:
+        icon.Glyph(L"\uE73E");
+        colorResource = L"SystemFillColorSuccessBrush";
+        UpdateCheckResultText().Text(L"没有新版本，当前已是最新版本。");
+        break;
+    case UpdateCheckResult::Available:
+        icon.Glyph(L"\uE896");
+        colorResource = L"SystemFillColorAttentionBrush";
+        UpdateCheckResultText().Text(L"发现新版本，请查看更新器窗口。");
+        break;
+    case UpdateCheckResult::Failed:
+        icon.Glyph(L"\uEA39");
+        colorResource = L"SystemFillColorCriticalBrush";
+        UpdateCheckResultText().Text(L"更新检查失败，请稍后重试。");
+        break;
+    default:
+        icon.Glyph(L"\uE823");
+        UpdateCheckResultText().Text(L"更新检查超时，请稍后重试。");
+        break;
+    }
+    icon.Foreground(Application::Current().Resources().Lookup(winrt::box_value(colorResource))
+        .as<Microsoft::UI::Xaml::Media::Brush>());
+    icon.Visibility(Visibility::Visible);
+    updateResultShowing_ = true;
+    if (updateOverlayTimer_ != nullptr) {
+        updateOverlayTimer_.Stop();
+        updateOverlayTimer_.Interval(std::chrono::milliseconds(1500));
+        updateOverlayTimer_.Start();
     }
 }
 
@@ -631,10 +689,21 @@ void MainWindow::EndUpdateOverlay() {
         updateOverlayTimer_.Stop();
     }
     UpdateCheckOverlay().Visibility(Visibility::Collapsed);
+    updateResultShowing_ = false;
     MainContentScrollViewer().IsEnabled(true);
 }
 
 void MainWindow::RefreshStatus() {
+    if (!carrierLoaded_) {
+        std::wstring configError;
+        const auto config = ipc_.Call({kProtocolVersion, MessageType::GetConfig,
+            L"ui-config", "{}"}, 1500, configError);
+        if (config) {
+            const auto carrier = ExtractJsonString(config->payload, "carrier");
+            CarrierBox().SelectedIndex(carrier && *carrier == "mobile" ? 1 : 0);
+            carrierLoaded_ = true;
+        }
+    }
     StatusText().Text(L"\u6B63\u5728\u8FDE\u63A5\u5230\u670D\u52A1");
     std::wstring error;
     const auto response = ipc_.Call(
@@ -861,9 +930,10 @@ void MainWindow::MaybeStartBrowserFallback(std::string_view statusPayload) {
     }
 
     BrowserFallbackRequest request{
-        L"ui-browser-request", viewModel_.Config().portalUrl,
+        L"ui-browser-request", FromUtf8(ExtractJsonString(response->payload, "portalUrl").value_or("http://10.10.12.13/")),
         FromUtf8(*username), FromUtf8(*password), viewModel_.UiAutostart(),
         std::chrono::seconds(30)};
+    request.mobile = ExtractJsonString(response->payload, "carrier").value_or("telecom") == "mobile";
     browserFlowStarted_ = true;
     if (!webView_->Start(
             handle, request,

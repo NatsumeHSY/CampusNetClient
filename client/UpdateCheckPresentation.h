@@ -1,4 +1,8 @@
 #pragma once
+#include <string_view>
+
+enum class UpdateCheckResult { TimedOut, UpToDate, Available, Failed };
+UpdateCheckResult ClassifyUpdateCheckResult(std::string_view phase);
 
 struct UpdateCheckPresentationAction {
     bool requestCheck = false;
