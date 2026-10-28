@@ -4,6 +4,7 @@
 #include "UpdateAgentStatus.h"
 #include "UpdateDownloader.h"
 #include "UpdateIntegrity.h"
+#include "UpdateSchedule.h"
 #include "WinHttpUpdateTransport.h"
 
 #ifndef NOMINMAX
@@ -11,6 +12,7 @@
 #endif
 #include <Windows.h>
 #include <WinHttp.h>
+#include <WtsApi32.h>
 
 #include <algorithm>
 #include <atomic>
@@ -19,19 +21,16 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
-#include <random>
 #include <string>
 #include <string_view>
 #include <thread>
+
+#pragma comment(lib, "Wtsapi32.lib")
 
 namespace {
 
 constexpr std::size_t kMaxLocalVersionBytes = 64 * 1024;
 constexpr std::size_t kMaxReleaseNoteCharacters = 4096;
-constexpr auto kNormalCheckPeriod = std::chrono::hours(6);
-constexpr auto kNormalJitter = std::chrono::minutes(15);
-constexpr std::uint64_t kRetryBaseMinutes = 5;
-constexpr std::uint64_t kRetryMaximumMinutes = 6 * 60;
 constexpr DWORD kPipeCallTimeoutMs = 2500;
 
 std::filesystem::path ModuleDirectory() {
@@ -66,6 +65,49 @@ bool ReadLocalInstallInfo(const std::filesystem::path& path,
         return false;
     }
     return ParseLocalInstallInfo(json, local, error);
+}
+
+bool HasLoggedOnInteractiveUser() {
+    PWTS_SESSION_INFOW sessions = nullptr;
+    DWORD sessionCount = 0;
+    if (!WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1,
+                               &sessions, &sessionCount)) {
+        return false;
+    }
+    bool found = false;
+    for (DWORD index = 0; index < sessionCount && !found; ++index) {
+        if (sessions[index].SessionId == 0 ||
+            sessions[index].State != WTSActive) {
+            continue;
+        }
+        LPWSTR userName = nullptr;
+        DWORD bytes = 0;
+        if (WTSQuerySessionInformationW(
+                WTS_CURRENT_SERVER_HANDLE, sessions[index].SessionId,
+                WTSUserName, &userName, &bytes)) {
+            found = userName != nullptr && userName[0] != L'\0';
+            if (userName != nullptr) WTSFreeMemory(userName);
+        }
+    }
+    WTSFreeMemory(sessions);
+    return found;
+}
+
+bool WaitForInteractiveLogon(HANDLE stopEvent, HANDLE checkEvent,
+                            DWORD& errorCode) {
+    errorCode = ERROR_SUCCESS;
+    HANDLE events[]{stopEvent, checkEvent};
+    while (!ShouldBeginUpdateCheck(HasLoggedOnInteractiveUser())) {
+        const DWORD wait = WaitForMultipleObjects(
+            static_cast<DWORD>(std::size(events)), events, FALSE, 10000);
+        if (wait == WAIT_OBJECT_0) return false;
+        if (wait == WAIT_FAILED) {
+            errorCode = GetLastError();
+            if (errorCode == ERROR_SUCCESS) errorCode = ERROR_GEN_FAILURE;
+            return false;
+        }
+    }
+    return true;
 }
 
 std::wstring TruncateReleaseNotes(std::wstring notes) {
@@ -112,53 +154,31 @@ public:
             return ERROR_BAD_PATHNAME;
         }
 
-        CheckNow();
-        unsigned consecutiveFailures = lastCheckSucceeded_ ? 0 : 1;
-        std::mt19937 random(std::random_device{}());
         while (true) {
-            const DWORD timeout = static_cast<DWORD>(NextDelay(
-                consecutiveFailures, random).count());
-            HANDLE events[]{stopEvent, checkEvent};
-            const DWORD wait = WaitForMultipleObjects(2, events, FALSE, timeout);
-            if (wait == WAIT_OBJECT_0) {
-                return ERROR_SUCCESS;
-            }
-            if (wait == WAIT_OBJECT_0 + 1 || wait == WAIT_TIMEOUT) {
-                CheckNow();
-                if (lastCheckSucceeded_) {
-                    consecutiveFailures = 0;
-                } else {
-                    consecutiveFailures = std::min(consecutiveFailures + 1, 16u);
+            DWORD waitError = ERROR_SUCCESS;
+            if (!WaitForInteractiveLogon(stopEvent, checkEvent, waitError))
+                return waitError;
+            CheckNow();
+            while (HasLoggedOnInteractiveUser()) {
+                const DWORD timeout = static_cast<DWORD>(
+                    NormalUpdateCheckInterval().count());
+                HANDLE events[]{stopEvent, checkEvent};
+                const DWORD wait = WaitForMultipleObjects(2, events, FALSE,
+                                                           timeout);
+                if (wait == WAIT_OBJECT_0) return ERROR_SUCCESS;
+                if (wait == WAIT_OBJECT_0 + 1 || wait == WAIT_TIMEOUT) {
+                    if (!HasLoggedOnInteractiveUser()) break;
+                    CheckNow();
+                    continue;
                 }
-                continue;
+                const DWORD waitFailureCode = GetLastError();
+                return waitFailureCode == ERROR_SUCCESS
+                    ? ERROR_GEN_FAILURE : waitFailureCode;
             }
-            return GetLastError() == ERROR_SUCCESS ? ERROR_GEN_FAILURE
-                                                    : GetLastError();
         }
     }
 
 private:
-    std::chrono::milliseconds NextDelay(unsigned failures,
-                                        std::mt19937& random) const {
-        std::uniform_int_distribution<std::int64_t> normalJitter(
-            0, std::chrono::duration_cast<std::chrono::milliseconds>(
-                   kNormalJitter).count());
-        std::uniform_int_distribution<std::int64_t> retryJitter(0, 30000);
-        if (failures == 0) {
-            return std::chrono::duration_cast<std::chrono::milliseconds>(
-                       kNormalCheckPeriod) +
-                   std::chrono::milliseconds(normalJitter(random));
-        }
-        const auto exponent = std::min(failures - 1, 6u);
-        const auto retryMinutes = std::min<std::uint64_t>(
-            kRetryBaseMinutes * (std::uint64_t{1} << exponent),
-            kRetryMaximumMinutes);
-        const std::chrono::minutes retry(
-            static_cast<std::chrono::minutes::rep>(retryMinutes));
-        return std::chrono::duration_cast<std::chrono::milliseconds>(retry) +
-               std::chrono::milliseconds(retryJitter(random));
-    }
-
     bool Publish(const UpdateAgentStatus& status) {
         const std::string payload = EncodeUpdateAgentStatus(status);
         if (payload.empty() || payload.size() > kMaxProtocolMessageBytes / 2) {
@@ -196,13 +216,11 @@ private:
         std::wstring error;
         if (!downloader.FetchManifest(kRemoteManifestUrl, manifestJson, error)) {
             PublishFailure(status, ERROR_WINHTTP_CANNOT_CONNECT);
-            lastCheckSucceeded_ = false;
             return;
         }
         RemoteUpdateManifest remote;
         if (!ParseRemoteUpdateManifest(manifestJson, remote, error)) {
             PublishFailure(status, ERROR_INVALID_DATA);
-            lastCheckSucceeded_ = false;
             return;
         }
 
@@ -216,7 +234,6 @@ private:
             status.targetVersion = local_.version;
             status.releaseNotes = TruncateReleaseNotes(remote.releaseNotes);
             Publish(status);
-            lastCheckSucceeded_ = true;
             return;
         }
 
@@ -227,7 +244,6 @@ private:
         status.artifactSha256 = artifact.sha256;
         if (artifact.sizeBytes == 0 || artifact.sha256.empty()) {
             PublishFailure(status, ERROR_INVALID_DATA);
-            lastCheckSucceeded_ = false;
             return;
         }
         Publish(status);
@@ -255,7 +271,6 @@ private:
             stagedPath, error);
         if (!downloaded) {
             PublishFailure(status, ERROR_GEN_FAILURE);
-            lastCheckSucceeded_ = false;
             return;
         }
         status.phase = UpdatePhase::Ready;
@@ -263,7 +278,6 @@ private:
         status.totalBytes = artifact.sizeBytes;
         status.bytesPerSecond = 0;
         Publish(status);
-        lastCheckSucceeded_ = true;
     }
 
     void PublishFailure(UpdateAgentStatus status, DWORD errorCode) {
@@ -281,7 +295,6 @@ private:
     std::filesystem::path installDirectory_;
     LocalInstallInfo local_;
     std::atomic_bool cancel_{false};
-    bool lastCheckSucceeded_ = false;
     std::uint64_t requestCounter_ = 0;
 };
 

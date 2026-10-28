@@ -7,8 +7,8 @@ namespace {
 
 class FakeProcessHost final : public IUpdaterProcessHost {
 public:
-    bool StartRestrictedAgent(const std::filesystem::path&, HANDLE& process,
-                              std::wstring& error) override {
+    bool StartAgent(const std::filesystem::path&, HANDLE& process,
+                    std::wstring& error) override {
         ++startCalls;
         if (failStarts > 0) {
             --failStarts;

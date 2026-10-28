@@ -15,6 +15,18 @@
       <ComponentGroupRef Id="ClientPayload" />
     </Feature>
 
+    <CustomAction Id="ConfigureCampusNetService"
+                  FileRef="CampusNetServiceFile"
+                  ExeCommand="--configure-service"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureCampusNetService"
+              After="InstallServices"
+              Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="CampusNetClient">
         <Directory Id="LOGSFOLDER" Name="logs" />
@@ -37,7 +49,9 @@
         <File Source="$(var.PackageBinDir)\CampusNetUpdater.exe" KeyPath="yes" />
       </Component>
       <Component Id="ServiceExecutableComponent" Guid="{B61E1D2C-4E8C-4DB8-9C83-DC80C6F2B1F0}">
-        <File Source="$(var.PackageBinDir)\CampusNetService.exe" KeyPath="yes" />
+        <File Id="CampusNetServiceFile"
+              Source="$(var.PackageBinDir)\CampusNetService.exe"
+              KeyPath="yes" />
         <ServiceInstall Id="CampusNetServiceInstall"
                         Name="CampusNetService"
                         DisplayName="CampusNetService"

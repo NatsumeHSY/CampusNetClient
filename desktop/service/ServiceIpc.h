@@ -15,9 +15,8 @@ struct ServiceIpcClientContext {
     DWORD processId = 0;
     DWORD sessionId = 0;
     bool interactiveUser = false;
-    bool restrictedToken = false;
+    bool elevatedAdministrator = false;
     bool systemUser = false;
-    bool restrictedCodeSid = false;
 };
 
 class ServiceIpcServer {

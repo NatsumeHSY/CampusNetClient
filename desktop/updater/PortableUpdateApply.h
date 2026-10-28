@@ -22,6 +22,8 @@ struct PortableUpdateResult {
 class IPortableUpdateHost {
 public:
     virtual ~IPortableUpdateHost() = default;
+    virtual bool QueryServiceInstallation(bool& installed,
+                                          std::wstring& error) = 0;
     virtual bool CloseClientProcesses(std::wstring& error) = 0;
     virtual bool StopService(std::wstring& error) = 0;
     virtual bool StartService(std::wstring& error) = 0;

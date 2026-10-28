@@ -15,6 +15,7 @@
   <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><AdditionalIncludeDirectories>$(ProjectDir)..\shared;$(ProjectDir)..\service;$(ProjectDir)..\client;$(ProjectDir)..\updater;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem><AdditionalDependencies>Advapi32.lib;Userenv.lib;Bcrypt.lib;Shell32.lib;Ole32.lib;%(AdditionalDependencies)</AdditionalDependencies><ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile><LinkIncremental>false</LinkIncremental></Link></ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ServiceMain.cpp" />
+    <ClCompile Include="ServiceConfiguration.cpp" />
     <ClCompile Include="HttpPortalClient.cpp" />
     <ClCompile Include="PortalNetworkIdentity.cpp" />
     <ClCompile Include="ServiceIpc.cpp" />

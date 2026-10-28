@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "version": "0.1.1",
-  "publishedAt": "2026-10-28T04:58:27Z",
-  "releaseNotes": "新增移动套餐登录支持（正在测试），默认选择电信；套餐选择由服务保存，重启后恢复。\n更新检查结果改为在遮罩中央显示对应图标和文字，停留 1500ms 后关闭。\n提供绿色版和 MSI 安装版。",
+  "version": "0.1.2",
+  "publishedAt": "2026-10-28T23:55:08Z",
+  "releaseNotes": "## 本次修复\n\n- 调整自动更新代理生命周期：已安装服务时由 Windows 服务监督；未安装服务时由客户端启动同一代理。\n- 更新检查改为用户登录后立即执行，之后每 10 分钟检查一次；客户端首次显示时可请求即时检查并在遮罩上显示结果。\n- 修复更新应用流程：更新前关闭客户端，并在服务已安装时停止服务；应用完成后恢复服务并重新启动客户端。\n- 服务配置为自动启动并持续重试失败，普通用户不能通过服务管理器停止或更改服务。\n- 绿色版与 MSI 版均使用版本清单、文件完整性校验和更新流程。",
   "artifacts": {
     "portable": {
-      "url": "https://github.com/NatsumeHSY/CampusNetClient/releases/download/v0.1.1/CampusNetClient-0.1.1-portable.zip",
-      "sizeBytes": 35856490,
-      "sha256": "834ed030220492bdd7c6719c8e453bdce62dde5baa5a1e355e23c67ed4b41b81",
+      "url": "https://github.com/NatsumeHSY/CampusNetClient/releases/download/v0.1.2/CampusNetClient-0.1.2-portable.zip",
+      "sizeBytes": 35912486,
+      "sha256": "9a8dfb3ffc4edf61e0c3fdf53c55e580bcc7fb66f3b050776a578c305d66984d",
       "files": {
         "bin/af-ZA/Microsoft.ui.xaml.dll.mui": "861dcc547fe26d70843837b3fb5f157fd3dc3a98a51493b356d04e9d6eed7bcf",
         "bin/af-ZA/Microsoft.UI.Xaml.Phone.dll.mui": "ce09b8a010c677ca44c3d6fb5d9827698ec0a329da65d71b7c3beb8b7613e2d1",
@@ -37,10 +37,10 @@
         "bin/ca-Es-VALENCIA/Microsoft.UI.Xaml.Phone.dll.mui": "8f30f4db119f0b808e2fe322dab36424ae0c1d913e31ba22831778d411cc197c",
         "bin/ca-ES/Microsoft.ui.xaml.dll.mui": "92150a3dea0658d4350b543077b99127f977293fc94f41e66defd462a5d866c8",
         "bin/ca-ES/Microsoft.UI.Xaml.Phone.dll.mui": "4f621a9dbb4e7073b5601c3c9d1c5eaba1dca75aeaf0be75746fcc9ae2f9a8e5",
-        "bin/CampusNetClient.exe": "33ce801f236b29fb0c312b7b287fec0057d88680d38e3a10d3d59ec990f264b9",
-        "bin/CampusNetClient.winmd": "a2323aff24db7f9945a7050f99a5527c877f8a6529c5edcc851829e412af4d17",
-        "bin/CampusNetService.exe": "a5e8b311cc1aa585ae94dedf34762c206a6702f3da727702bdb2401f3bb36a3e",
-        "bin/CampusNetUpdater.exe": "160780334cf19d3e9230f02505a73414801a0227b84112a0f1bcd0447ab1dc53",
+        "bin/CampusNetClient.exe": "76363259ee149f2c37d979e113798ea892698d80610e6c667936ef106eb36248",
+        "bin/CampusNetClient.winmd": "6c5abd677bd2ca7e526efc8bee0da2da31e338eb2eb74540fea59fa799452c07",
+        "bin/CampusNetService.exe": "c74b5f052ffc2ff62881c90c271b7c06ac2b64f555579e6f24c6d7ce6055ecaf",
+        "bin/CampusNetUpdater.exe": "f293ed6beedd6cbed24ccbe7b0c5e17502869a93c2ca1ada51bfcb4e10a8d820",
         "bin/CoreMessagingXP.dll": "003e601de5487a359962222df2d855fc7a6c92b7d38e08b7340b3b8bb6f1fac0",
         "bin/cs-CZ/Microsoft.ui.xaml.dll.mui": "c1b88d34256acbeea901b3b8beb3b09bc7fb9cc393dc26696333fd2667bfe318",
         "bin/cs-CZ/Microsoft.UI.Xaml.Phone.dll.mui": "dab1a805b2ef4f38af8e9bfadeb376d43d82aa9e124d665f1950b09133fe9f1b",
@@ -250,7 +250,7 @@
         "bin/ur-PK/Microsoft.UI.Xaml.Phone.dll.mui": "cbd3450de657f7f79a7762dc0c8d503540afd3beb891128fc540f42661af2667",
         "bin/uz-Latn-UZ/Microsoft.ui.xaml.dll.mui": "19d80aa0ed24e578367d7693fbaf56c559ca3584ef1ebe376461469604a18271",
         "bin/uz-Latn-UZ/Microsoft.UI.Xaml.Phone.dll.mui": "471d7b81f51e693006134b5d3388913e520d7d5e46f04f7c3652052f2098d539",
-        "bin/version.json": "72541cc3cbe9883d20004c9260795a3e06ff17cdaa951b7096b278d338c9c09c",
+        "bin/version.json": "dcd5bfe81470150a2d5227801673b18f452bdf734d02de386b4b3c401a649523",
         "bin/vi-VN/Microsoft.ui.xaml.dll.mui": "f71efab2b5c8ed08b8a40a910bb4d31ac18f6a41dd6d28014b72e03f7d93f7b6",
         "bin/vi-VN/Microsoft.UI.Xaml.Phone.dll.mui": "28e47604e94406db75924c66278d9e1cc5e8548c2bb666a7b9d7865bc5c6dd7d",
         "bin/WebView2Loader.dll": "ae69309c5e356350ea28d6b71a900bc43ee7e3f7a457d80a1f82efe6c419cc08",
@@ -260,13 +260,13 @@
         "bin/zh-CN/Microsoft.UI.Xaml.Phone.dll.mui": "aeb79896620453aab9ed1e86c2dca8496736d4fd5d8c040df3d8be705d2a3dc8",
         "bin/zh-TW/Microsoft.ui.xaml.dll.mui": "1efbeabad927f588a660b0e2a0fd440ac8a9f7e5aa384778e18f1499eccd5531",
         "bin/zh-TW/Microsoft.UI.Xaml.Phone.dll.mui": "e42cb7c8cd04b60870171d80be576146c6e87bef054ff47a1e21a27a91ade901",
-        "CampusNetLauncher.exe": "88a19ddc6e10f119f03c3b9085f060a3e24b77ad03afc42779ac999acfe63067"
+        "CampusNetLauncher.exe": "702536200b7a0b69b908a90866f827f17352983a7f9e4822a2447dce781878e2"
       }
     },
     "msi": {
-      "url": "https://github.com/NatsumeHSY/CampusNetClient/releases/download/v0.1.1/CampusNetClient-0.1.1.msi",
-      "sizeBytes": 29805394,
-      "sha256": "e3128c261d1c8dcf680f2714644c934e6308bf20425bb6407f75cb0000bde0f6",
+      "url": "https://github.com/NatsumeHSY/CampusNetClient/releases/download/v0.1.2/CampusNetClient-0.1.2.msi",
+      "sizeBytes": 29834524,
+      "sha256": "2df30708cc625241aca7cb7069e0857757f97ed253fa9c45b947b2c1385481be",
       "files": {
         "af-ZA/Microsoft.ui.xaml.dll.mui": "861dcc547fe26d70843837b3fb5f157fd3dc3a98a51493b356d04e9d6eed7bcf",
         "af-ZA/Microsoft.UI.Xaml.Phone.dll.mui": "ce09b8a010c677ca44c3d6fb5d9827698ec0a329da65d71b7c3beb8b7613e2d1",
@@ -296,10 +296,10 @@
         "ca-Es-VALENCIA/Microsoft.UI.Xaml.Phone.dll.mui": "8f30f4db119f0b808e2fe322dab36424ae0c1d913e31ba22831778d411cc197c",
         "ca-ES/Microsoft.ui.xaml.dll.mui": "92150a3dea0658d4350b543077b99127f977293fc94f41e66defd462a5d866c8",
         "ca-ES/Microsoft.UI.Xaml.Phone.dll.mui": "4f621a9dbb4e7073b5601c3c9d1c5eaba1dca75aeaf0be75746fcc9ae2f9a8e5",
-        "CampusNetClient.exe": "33ce801f236b29fb0c312b7b287fec0057d88680d38e3a10d3d59ec990f264b9",
-        "CampusNetClient.winmd": "a2323aff24db7f9945a7050f99a5527c877f8a6529c5edcc851829e412af4d17",
-        "CampusNetService.exe": "a5e8b311cc1aa585ae94dedf34762c206a6702f3da727702bdb2401f3bb36a3e",
-        "CampusNetUpdater.exe": "160780334cf19d3e9230f02505a73414801a0227b84112a0f1bcd0447ab1dc53",
+        "CampusNetClient.exe": "76363259ee149f2c37d979e113798ea892698d80610e6c667936ef106eb36248",
+        "CampusNetClient.winmd": "6c5abd677bd2ca7e526efc8bee0da2da31e338eb2eb74540fea59fa799452c07",
+        "CampusNetService.exe": "c74b5f052ffc2ff62881c90c271b7c06ac2b64f555579e6f24c6d7ce6055ecaf",
+        "CampusNetUpdater.exe": "f293ed6beedd6cbed24ccbe7b0c5e17502869a93c2ca1ada51bfcb4e10a8d820",
         "CoreMessagingXP.dll": "003e601de5487a359962222df2d855fc7a6c92b7d38e08b7340b3b8bb6f1fac0",
         "cs-CZ/Microsoft.ui.xaml.dll.mui": "c1b88d34256acbeea901b3b8beb3b09bc7fb9cc393dc26696333fd2667bfe318",
         "cs-CZ/Microsoft.UI.Xaml.Phone.dll.mui": "dab1a805b2ef4f38af8e9bfadeb376d43d82aa9e124d665f1950b09133fe9f1b",
@@ -518,7 +518,7 @@
         "zh-CN/Microsoft.UI.Xaml.Phone.dll.mui": "aeb79896620453aab9ed1e86c2dca8496736d4fd5d8c040df3d8be705d2a3dc8",
         "zh-TW/Microsoft.ui.xaml.dll.mui": "1efbeabad927f588a660b0e2a0fd440ac8a9f7e5aa384778e18f1499eccd5531",
         "zh-TW/Microsoft.UI.Xaml.Phone.dll.mui": "e42cb7c8cd04b60870171d80be576146c6e87bef054ff47a1e21a27a91ade901",
-        "version.json": "3885694e510f3bae879cd1417b1ee2f09cadd548f2240066ec3c99e5c70aad0b"
+        "version.json": "48977c3f1b1710d826d6c400ab770613cce2e5840aaa7746bbc1d3eb7b45d368"
       }
     }
   }

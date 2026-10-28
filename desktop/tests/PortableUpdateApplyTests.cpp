@@ -20,6 +20,11 @@ using Entry = std::pair<std::string, std::string>;
 
 class TestHost final : public IPortableUpdateHost {
 public:
+    bool QueryServiceInstallation(bool& installed, std::wstring&) override {
+        ++queryCalls;
+        installed = serviceInstalled;
+        return querySucceeds;
+    }
     bool CloseClientProcesses(std::wstring&) override {
         ++closeCalls;
         return closeSucceeds;
@@ -46,6 +51,9 @@ public:
     unsigned stopCalls = 0;
     unsigned startCalls = 0;
     unsigned waitCalls = 0;
+    unsigned queryCalls = 0;
+    bool querySucceeds = true;
+    bool serviceInstalled = true;
     bool closeSucceeds = true;
     bool stopSucceeds = true;
     bool startSucceeds = true;
@@ -220,7 +228,8 @@ bool RunArchiveCase(const std::vector<Entry>& archiveFiles,
                     bool expectSuccess, bool failFirstStart = false,
                     std::string_view reparseName = {},
                     std::string_view replaceFrom = {},
-                    std::string_view replaceTo = {}) {
+                    std::string_view replaceTo = {},
+                    bool serviceInstalled = true) {
     const auto temp = NewTempDirectory();
     struct Cleanup {
         std::filesystem::path path;
@@ -238,6 +247,7 @@ bool RunArchiveCase(const std::vector<Entry>& archiveFiles,
     const auto artifact = MakeArtifact(archive, manifestFiles);
     TestHost host;
     host.failFirstStart = failFirstStart;
+    host.serviceInstalled = serviceInstalled;
     const auto result = PortableUpdateApply::Apply(archive, root, L"1.2.3",
                                                    artifact, host);
     if (expectSuccess) {
@@ -248,6 +258,11 @@ bool RunArchiveCase(const std::vector<Entry>& archiveFiles,
         assert(result.success);
         assert(!result.rolledBack);
         assert(ReadText(root / L"bin" / L"CampusNetClient.exe") == "new client");
+        if (!serviceInstalled) {
+            assert(host.stopCalls == 0);
+            assert(host.startCalls == 0);
+            assert(host.waitCalls == 0);
+        }
         return true;
     } else if (failFirstStart) {
         assert(!result.success && result.rolledBack);
@@ -271,6 +286,8 @@ bool RunCase(const std::vector<Entry>& files, bool expectSuccess,
 
 int RunPortableUpdateApplyTests() {
     if (!RunCase(ValidFiles(), true)) return 1;
+    if (!RunArchiveCase(ValidFiles(), ValidFiles(), true, false, {}, {}, {},
+                        false)) return 8;
 
     auto traversal = ValidFiles();
     traversal.emplace_back("xx/escape.tx", "must not be extracted");

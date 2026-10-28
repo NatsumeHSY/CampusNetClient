@@ -317,9 +317,13 @@ bool DecodeUpdateAgentStatusPayload(std::string_view payload,
 
 bool IsAuthorizedUpdateAgentContext(const ServiceIpcClientContext& context,
                                     DWORD expectedProcessId) {
-    return expectedProcessId != 0 && context.processId == expectedProcessId &&
-           context.sessionId == 0 && context.systemUser &&
-           context.restrictedToken && context.restrictedCodeSid;
+    if (expectedProcessId == 0 || context.processId != expectedProcessId) {
+        return false;
+    }
+    const bool systemAgent = context.sessionId == 0 && context.systemUser;
+    const bool standaloneElevatedAgent = context.sessionId != 0 &&
+        context.interactiveUser && context.elevatedAdministrator;
+    return systemAgent || standaloneElevatedAgent;
 }
 
 UpdateAgentIpc::UpdateAgentIpc(

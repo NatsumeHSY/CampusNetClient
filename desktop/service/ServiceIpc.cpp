@@ -135,10 +135,22 @@ ServiceIpcClientContext InspectClient(HANDLE pipe) {
                              sizeof(context.sessionId), &returned)) {
         return context;
     }
-    BOOL restricted = FALSE;
-    if (GetTokenInformation(token.get(), TokenIsRestricted, &restricted,
-                            sizeof(restricted), &returned)) {
-        context.restrictedToken = restricted != FALSE;
+    TOKEN_ELEVATION elevation{};
+    if (GetTokenInformation(token.get(), TokenElevation, &elevation,
+                            sizeof(elevation), &returned) &&
+        elevation.TokenIsElevated != 0) {
+        std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> administratorSid{};
+        DWORD administratorSidSize =
+            static_cast<DWORD>(administratorSid.size());
+        if (CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr,
+                               administratorSid.data(),
+                               &administratorSidSize)) {
+            BOOL isAdministrator = FALSE;
+            if (CheckTokenMembership(token.get(), administratorSid.data(),
+                                     &isAdministrator)) {
+                context.elevatedAdministrator = isAdministrator != FALSE;
+            }
+        }
     }
 
     std::vector<std::uint8_t> userBuffer(SECURITY_MAX_SID_SIZE +
@@ -151,31 +163,6 @@ ServiceIpcClientContext InspectClient(HANDLE pipe) {
         if (CreateWellKnownSid(WinLocalSystemSid, nullptr, systemSid.data(),
                                &sidSize)) {
             context.systemUser = EqualSid(user->User.Sid, systemSid.data()) != FALSE;
-        }
-        std::vector<std::uint8_t> restrictedBuffer;
-        DWORD restrictedSize = 0;
-        GetTokenInformation(token.get(), TokenRestrictedSids, nullptr, 0,
-                            &restrictedSize);
-        if (restrictedSize >= sizeof(TOKEN_GROUPS)) {
-            restrictedBuffer.resize(restrictedSize);
-            if (GetTokenInformation(token.get(), TokenRestrictedSids,
-                                    restrictedBuffer.data(), restrictedSize,
-                                    &returned)) {
-                auto* groups = reinterpret_cast<TOKEN_GROUPS*>(
-                    restrictedBuffer.data());
-                std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> restrictedCode{};
-                sidSize = static_cast<DWORD>(restrictedCode.size());
-                if (CreateWellKnownSid(WinRestrictedCodeSid, nullptr,
-                                       restrictedCode.data(), &sidSize)) {
-                    for (DWORD index = 0; index < groups->GroupCount; ++index) {
-                        if (EqualSid(groups->Groups[index].Sid,
-                                     restrictedCode.data())) {
-                            context.restrictedCodeSid = true;
-                            break;
-                        }
-                    }
-                }
-            }
         }
         std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> interactiveSid{};
         sidSize = static_cast<DWORD>(interactiveSid.size());

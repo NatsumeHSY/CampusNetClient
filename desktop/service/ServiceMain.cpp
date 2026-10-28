@@ -2,6 +2,7 @@
 #include "LoginService.h"
 #include "NetworkMonitor.h"
 #include "ServiceIpc.h"
+#include "ServiceConfiguration.h"
 #include "UpdateAgentIpc.h"
 #include "UpdateApplyProcessHost.h"
 #include "UpdateBroker.h"
@@ -21,6 +22,7 @@
 
 #include <algorithm>
 #include <condition_variable>
+#include <cwchar>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -681,7 +683,13 @@ void WINAPI ServiceMain(DWORD, LPWSTR*) {
 
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
+    if (commandLine != nullptr &&
+        wcscmp(commandLine, L"--configure-service") == 0) {
+        std::wstring error;
+        return ConfigureCampusNetService(error) ? ERROR_SUCCESS
+                                                : ERROR_ACCESS_DENIED;
+    }
     SERVICE_TABLE_ENTRYW table[] = {
         {const_cast<LPWSTR>(L"CampusNetService"), ServiceMain},
         {nullptr, nullptr},

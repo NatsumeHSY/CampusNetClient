@@ -470,13 +470,23 @@ MainWindow::MainWindow()
     UiAutostartToggle().IsOn(viewModel_.UiAutostart());
     ServicePathText().Text(winrt::hstring(
         L"服务程序：" + ResolveServiceBinaryPath().wstring()));
+    std::wstring serviceQueryError;
+    if (serviceManager_.Query(serviceQueryError) == ManagedServiceState::Missing) {
+        standaloneUpdateRuntime_ = std::make_unique<StandaloneUpdateRuntime>(
+            ResolveServiceBinaryPath().parent_path());
+        std::wstring updaterError;
+        if (!standaloneUpdateRuntime_->Start(updaterError)) {
+            SetServiceFeedback(std::move(updaterError));
+            standaloneUpdateRuntime_.reset();
+        }
+    }
     RefreshServiceStatus();
 
     dispatcher_ =
         Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
     if (dispatcher_ != nullptr) {
         updateOverlayTimer_ = dispatcher_.CreateTimer();
-        updateOverlayTimer_.Interval(std::chrono::seconds(10));
+        updateOverlayTimer_.Interval(std::chrono::seconds(40));
         updateOverlayTimer_.IsRepeating(false);
         updateOverlayTimer_.Tick([this](auto const&, auto const&) {
             if (updateResultShowing_) {
@@ -510,7 +520,7 @@ MainWindow::MainWindow()
                     ipc_.Call({kProtocolVersion, MessageType::CheckForUpdates,
                                L"ui-update-check", "{}"}, 2500, error);
                     const auto updateDeadline =
-                        std::chrono::steady_clock::now() + std::chrono::seconds(9);
+                        std::chrono::steady_clock::now() + std::chrono::seconds(40);
                     while (!pollStop_.load() &&
                            std::chrono::steady_clock::now() < updateDeadline) {
                         auto status = ipc_.Call(
@@ -634,7 +644,7 @@ void MainWindow::RequestUpdateCheck() {
         UpdateCheckOverlay().Visibility(Visibility::Visible);
         if (updateOverlayTimer_ != nullptr) {
             updateOverlayTimer_.Stop();
-            updateOverlayTimer_.Interval(std::chrono::seconds(10));
+            updateOverlayTimer_.Interval(std::chrono::seconds(40));
             updateOverlayTimer_.Start();
         }
         updateCheckRequested_.store(true);
@@ -991,6 +1001,10 @@ void MainWindow::InstallServiceButton_Click(
             servicePath.wstring(), L"CampusNetService", error);
     }
     serviceCommandGate_.Release();
+    if (success && standaloneUpdateRuntime_) {
+        standaloneUpdateRuntime_->Stop();
+        standaloneUpdateRuntime_.reset();
+    }
     SetServiceFeedback(success ? L"服务安装成功。" : error);
     RefreshServiceStatus();
 }
@@ -1027,7 +1041,17 @@ void MainWindow::UninstallServiceButton_Click(
     std::wstring error;
     const bool success = serviceManager_.Uninstall(error);
     serviceCommandGate_.Release();
-    SetServiceFeedback(success ? L"服务卸载成功。" : error);
+    std::wstring feedback = success ? L"服务卸载成功。" : error;
+    if (success && !standaloneUpdateRuntime_) {
+        standaloneUpdateRuntime_ = std::make_unique<StandaloneUpdateRuntime>(
+            ResolveServiceBinaryPath().parent_path());
+        std::wstring updaterError;
+        if (!standaloneUpdateRuntime_->Start(updaterError)) {
+            feedback = std::move(updaterError);
+            standaloneUpdateRuntime_.reset();
+        }
+    }
+    SetServiceFeedback(std::move(feedback));
     RefreshServiceStatus();
 }
 

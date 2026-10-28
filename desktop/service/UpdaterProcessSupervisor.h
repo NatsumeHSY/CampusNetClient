@@ -17,9 +17,9 @@
 class IUpdaterProcessHost {
 public:
     virtual ~IUpdaterProcessHost() = default;
-    virtual bool StartRestrictedAgent(const std::filesystem::path& executable,
-                                     HANDLE& process,
-                                     std::wstring& error) = 0;
+    virtual bool StartAgent(const std::filesystem::path& executable,
+                            HANDLE& process,
+                            std::wstring& error) = 0;
     virtual void RequestStop(HANDLE process) = 0;
     virtual bool WaitForExit(HANDLE process,
                              std::chrono::milliseconds timeout) = 0;
@@ -35,9 +35,9 @@ public:
     explicit WindowsUpdaterProcessHost(std::filesystem::path stagingDirectory);
     ~WindowsUpdaterProcessHost() override;
 
-    bool StartRestrictedAgent(const std::filesystem::path& executable,
-                             HANDLE& process,
-                             std::wstring& error) override;
+    bool StartAgent(const std::filesystem::path& executable,
+                    HANDLE& process,
+                    std::wstring& error) override;
     void RequestStop(HANDLE process) override;
     bool WaitForExit(HANDLE process,
                      std::chrono::milliseconds timeout) override;

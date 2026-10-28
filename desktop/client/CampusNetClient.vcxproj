@@ -22,7 +22,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
   <PropertyGroup Label="UserMacros" /><PropertyGroup><CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(MSBuildThisFileDirectory)..\..\..\build</CampusNetBuildRoot><CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot><OutDir>$(CampusNetPackageRoot)\bin\</OutDir><IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir></PropertyGroup>
-  <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><PreprocessorDefinitions>CAMPUSNET_WEBVIEW2_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalOptions>/FS /utf-8 %(AdditionalOptions)</AdditionalOptions><AdditionalIncludeDirectories>$(GeneratedFilesDir);$(IntDir);$(ProjectDir)..\shared;$(ProjectDir)..\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem><ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile><LinkIncremental>false</LinkIncremental></Link></ItemDefinitionGroup>
+  <ItemDefinitionGroup><ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp20</LanguageStandard><PreprocessorDefinitions>CAMPUSNET_WEBVIEW2_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalOptions>/FS /utf-8 %(AdditionalOptions)</AdditionalOptions><AdditionalIncludeDirectories>$(GeneratedFilesDir);$(IntDir);$(ProjectDir)..\shared;$(ProjectDir)..\client;$(ProjectDir)..\service;$(ProjectDir)..\updater;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Windows</SubSystem><AdditionalDependencies>Advapi32.lib;Bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies><ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile><LinkIncremental>false</LinkIncremental></Link></ItemDefinitionGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />
     <ResourceCompile Include="CampusNetClient.rc" />
@@ -44,6 +44,16 @@
      <ClCompile Include="ServiceManager.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
      <ClCompile Include="WebViewLogin.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
      <ClCompile Include="UserSessionLauncher.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="StandaloneUpdateRuntime.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\ServiceIpc.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\ServiceConfiguration.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\UpdateBroker.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\UpdateAgentIpc.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\UpdaterProcessSupervisor.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\service\UpdateApplyProcessHost.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\updater\UpdateAgentStatus.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\updater\UpdateIntegrity.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\updater\UpdateManifest.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
     <ClInclude Include="App.xaml.h" />
     <ClInclude Include="resource.h" />
@@ -56,6 +66,7 @@
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="WebViewLogin.h" />
     <ClInclude Include="UserSessionLauncher.h" />
+    <ClInclude Include="StandaloneUpdateRuntime.h" />
     <ClInclude Include="pch.h" />
     <Midl Include="Project.idl" />
   </ItemGroup>

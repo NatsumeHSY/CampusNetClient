@@ -13,6 +13,7 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <utility>
@@ -87,6 +88,46 @@ bool RelaunchInstalledClient(UpdateChannel channel, std::wstring& error) {
     return true;
 }
 
+bool IsServiceMissing() {
+    SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (manager == nullptr) return false;
+    SC_HANDLE service = OpenServiceW(manager, L"CampusNetService",
+                                     SERVICE_QUERY_STATUS);
+    const DWORD openError = service == nullptr ? GetLastError() : ERROR_SUCCESS;
+    if (service != nullptr) CloseServiceHandle(service);
+    CloseServiceHandle(manager);
+    return service == nullptr && openError == ERROR_SERVICE_DOES_NOT_EXIST;
+}
+
+bool ReadInstalledVersion(UpdateChannel expectedChannel,
+                          LocalInstallInfo& local) {
+    std::wstring installRootText;
+    std::wstring channelText;
+    if (!ReadOptionalEnvironment(kInstallRootEnvironmentVariable,
+                                 installRootText) ||
+        !ReadOptionalEnvironment(kChannelEnvironmentVariable, channelText) ||
+        channelText != (expectedChannel == UpdateChannel::Portable
+                            ? L"portable" : L"msi")) {
+        return false;
+    }
+    const std::filesystem::path installRoot(installRootText);
+    if (!installRoot.is_absolute()) return false;
+    const auto path = expectedChannel == UpdateChannel::Portable
+        ? installRoot / L"bin" / L"version.json"
+        : installRoot / L"version.json";
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return false;
+    input.seekg(0, std::ios::end);
+    const auto length = input.tellg();
+    if (length <= 0 || length > 64 * 1024) return false;
+    input.seekg(0, std::ios::beg);
+    std::string bytes(static_cast<std::size_t>(length), '\0');
+    std::wstring parseError;
+    return input.read(bytes.data(), static_cast<std::streamsize>(bytes.size())) &&
+           ParseLocalInstallInfo(bytes, local, parseError) &&
+           local.channel == expectedChannel;
+}
+
 UpdateWindowState ToWindowState(const UpdateAgentStatus& status) {
     UpdateWindowState state;
     state.localVersion = status.localVersion.empty() ? L"Unknown" : status.localVersion;
@@ -130,6 +171,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         bool requestedCheck = false;
         bool applyRequested = false;
         bool restartAttempted = false;
+        std::wstring expectedTargetVersion;
+        UpdateChannel expectedChannel = UpdateChannel::Portable;
         while (!stopping.load()) {
             std::wstring ipcError;
             if (!requestedCheck) {
@@ -142,10 +185,44 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 {kProtocolVersion, MessageType::GetUpdateStatus,
                  L"updater-gui-status", "{}"}, 2500, ipcError);
             if (!response) {
-                UpdateWindowState unavailable;
-                unavailable.status = L"Service unavailable";
-                unavailable.error = std::move(ipcError);
-                window.SetState(std::move(unavailable));
+                LocalInstallInfo installed;
+                if (applyRequested && !restartAttempted && IsServiceMissing() &&
+                    !expectedTargetVersion.empty() &&
+                    ReadInstalledVersion(expectedChannel, installed) &&
+                    installed.version == expectedTargetVersion) {
+                    restartAttempted = true;
+                    UpdateAgentStatus completeStatus;
+                    completeStatus.phase = UpdatePhase::UpToDate;
+                    completeStatus.localVersion = installed.version;
+                    completeStatus.targetVersion = installed.version;
+                    completeStatus.channel = installed.channel;
+                    std::wstring restartError;
+                    if (RelaunchInstalledClient(installed.channel, restartError)) {
+                        UpdateWindowState complete = ToWindowState(completeStatus);
+                        complete.status = L"Update installed. CampusNetClient is starting.";
+                        complete.requiresUacRestart = true;
+                        window.SetState(std::move(complete));
+                    } else {
+                        UpdateWindowState restartFailure = ToWindowState(completeStatus);
+                        restartFailure.status = L"Update installed, but restart needs attention.";
+                        restartFailure.error = std::move(restartError);
+                        window.SetState(std::move(restartFailure));
+                    }
+                    applyRequested = false;
+                } else if (applyRequested) {
+                    UpdateWindowState applying;
+                    applying.localVersion = L"Updating";
+                    applying.targetVersion = expectedTargetVersion;
+                    applying.channel = expectedChannel == UpdateChannel::Portable
+                        ? L"portable" : L"msi";
+                    applying.status = L"Applying update...";
+                    window.SetState(std::move(applying));
+                } else {
+                    UpdateWindowState unavailable;
+                    unavailable.status = L"Service unavailable";
+                    unavailable.error = std::move(ipcError);
+                    window.SetState(std::move(unavailable));
+                }
             } else {
                 UpdateAgentStatus status;
                 std::wstring parseError;
@@ -156,6 +233,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                     invalid.error = std::move(parseError);
                     window.SetState(std::move(invalid));
                 } else {
+                    if (status.phase == UpdatePhase::Ready) {
+                        expectedTargetVersion = status.targetVersion;
+                        expectedChannel = status.channel;
+                    }
                     window.SetState(ToWindowState(status));
                     if (status.phase == UpdatePhase::Ready && !applyRequested) {
                         auto applyReply = ipc.Call(

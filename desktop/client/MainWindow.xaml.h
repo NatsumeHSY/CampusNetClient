@@ -9,6 +9,7 @@
 #include "ClientIpc.h"
 #include "ClientViewModel.h"
 #include "ServiceManager.h"
+#include "StandaloneUpdateRuntime.h"
 #include "TrayIcon.h"
 #include "UpdateCheckPresentation.h"
 #include "WebViewLogin.h"
@@ -106,6 +107,7 @@ private:
     winrt::event_token closingToken_{};
     ServiceManager serviceManager_;
     ServiceCommandGate serviceCommandGate_;
+    std::unique_ptr<StandaloneUpdateRuntime> standaloneUpdateRuntime_;
 };
 
 } // namespace winrt::CampusNetClient::implementation

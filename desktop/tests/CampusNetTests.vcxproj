@@ -100,10 +100,12 @@
     <ClCompile Include="..\client\ClientIpc.cpp" />
     <ClCompile Include="..\client\ClientViewModel.cpp" />
     <ClCompile Include="..\client\ServiceManager.cpp" />
+    <ClCompile Include="..\service\ServiceConfiguration.cpp" />
     <ClCompile Include="..\client\StartupMode.cpp" />
     <ClCompile Include="..\client\SingleInstanceActivation.cpp" />
     <ClCompile Include="..\client\UpdateCheckPresentation.cpp" />
     <ClCompile Include="UpdateCheckPresentationTests.cpp" />
+    <ClCompile Include="UpdateScheduleTests.cpp" />
     <ClCompile Include="PortableUpdateApplyTests.cpp" />
     <ClCompile Include="MsiUpdateApplyTests.cpp" />
     <ClCompile Include="..\launcher\LauncherPaths.cpp" />
@@ -112,6 +114,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\updater\UpdateManifest.cpp" />
+    <ClCompile Include="..\updater\UpdateSchedule.cpp" />
     <ClCompile Include="..\updater\UpdateAgentStatus.cpp" />
     <ClCompile Include="..\updater\UpdateIntegrity.cpp" />
     <ClCompile Include="..\updater\UpdateDownloader.cpp" />

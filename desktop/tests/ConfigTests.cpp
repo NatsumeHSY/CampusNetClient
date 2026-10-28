@@ -25,6 +25,7 @@ int RunUpdaterRoleTests();
 int RunUpdaterSupervisorTests();
 int RunUpdateBrokerTests();
 int RunUpdateCheckPresentationTests();
+int RunUpdateScheduleTests();
 int RunPortableUpdateApplyTests();
 int RunMsiUpdateApplyTests();
 
@@ -99,6 +100,7 @@ int wmain() {
     assert(RunUpdaterSupervisorTests() == 0);
     assert(RunUpdateBrokerTests() == 0);
     assert(RunUpdateCheckPresentationTests() == 0);
+    assert(RunUpdateScheduleTests() == 0);
     if (RunPortableUpdateApplyTests() != 0) return 1;
     assert(RunMsiUpdateApplyTests() == 0);
 

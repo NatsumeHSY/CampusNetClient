@@ -1,5 +1,7 @@
 #include "ServiceManager.h"
+#include "../service/ServiceConfiguration.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -71,6 +73,10 @@ bool ServiceManager::Install(const std::wstring& binaryPath,
         error = LastErrorMessage(GetLastError());
         return false;
     }
+    if (!ConfigureCampusNetServiceHandle(service.get(), error)) {
+        DeleteService(service.get());
+        return false;
+    }
     return true;
 }
 
@@ -125,13 +131,49 @@ bool ServiceManager::Uninstall(std::wstring& error) const {
         return false;
     }
     const ScHandle service(OpenServiceW(
-        manager.get(), serviceName_.c_str(), DELETE | SERVICE_STOP));
+        manager.get(), serviceName_.c_str(),
+        DELETE | SERVICE_STOP | SERVICE_QUERY_STATUS));
     if (!service) {
         error = LastErrorMessage(GetLastError());
         return false;
     }
-    SERVICE_STATUS status{};
-    ControlService(service.get(), SERVICE_CONTROL_STOP, &status);
+    SERVICE_STATUS_PROCESS status{};
+    DWORD bytesNeeded = 0;
+    const ULONGLONG stopDeadline = GetTickCount64() + 30000;
+    while (GetTickCount64() < stopDeadline) {
+        if (!QueryServiceStatusEx(service.get(), SC_STATUS_PROCESS_INFO,
+                                  reinterpret_cast<LPBYTE>(&status), sizeof(status),
+                                  &bytesNeeded)) {
+            error = LastErrorMessage(GetLastError());
+            return false;
+        }
+        if (status.dwCurrentState == SERVICE_STOPPED) {
+            break;
+        }
+        if (status.dwCurrentState != SERVICE_STOP_PENDING) {
+            SERVICE_STATUS basicStatus{};
+            if (!ControlService(service.get(), SERVICE_CONTROL_STOP,
+                                &basicStatus)) {
+                const DWORD stopError = GetLastError();
+                if (stopError != ERROR_SERVICE_NOT_ACTIVE &&
+                    stopError != ERROR_SERVICE_CANNOT_ACCEPT_CTRL) {
+                    error = LastErrorMessage(stopError);
+                    return false;
+                }
+            }
+        }
+        Sleep(std::clamp<DWORD>(status.dwWaitHint / 10, 100, 1000));
+    }
+    if (!QueryServiceStatusEx(service.get(), SC_STATUS_PROCESS_INFO,
+                              reinterpret_cast<LPBYTE>(&status), sizeof(status),
+                              &bytesNeeded)) {
+        error = LastErrorMessage(GetLastError());
+        return false;
+    }
+    if (status.dwCurrentState != SERVICE_STOPPED) {
+        error = L"Timed out waiting for CampusNetService to stop";
+        return false;
+    }
     if (!DeleteService(service.get())) {
         error = LastErrorMessage(GetLastError());
         return false;

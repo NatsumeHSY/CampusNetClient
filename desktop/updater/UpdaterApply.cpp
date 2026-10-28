@@ -71,7 +71,7 @@ bool ParseUnsigned(std::wstring_view text, std::uint64_t& value) {
     return true;
 }
 
-bool IsSystemSessionZeroProcess() {
+bool IsAuthorizedApplyProcess() {
     HANDLE rawToken = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken)) return false;
     struct TokenHandle {
@@ -81,30 +81,36 @@ bool IsSystemSessionZeroProcess() {
     DWORD sessionId = MAXDWORD;
     DWORD returned = 0;
     if (!GetTokenInformation(token.value, TokenSessionId, &sessionId,
-                             sizeof(sessionId), &returned) || sessionId != 0) return false;
+                             sizeof(sessionId), &returned)) return false;
     DWORD required = 0;
     GetTokenInformation(token.value, TokenUser, nullptr, 0, &required);
     if (required == 0) return false;
     std::vector<std::byte> buffer(required);
     if (!GetTokenInformation(token.value, TokenUser, buffer.data(), required,
                              &required)) return false;
-    SID_IDENTIFIER_AUTHORITY authority = SECURITY_NT_AUTHORITY;
-    PSID systemSid = nullptr;
-    if (!AllocateAndInitializeSid(&authority, 1, SECURITY_LOCAL_SYSTEM_RID,
-                                  0, 0, 0, 0, 0, 0, 0, &systemSid)) return false;
-    const bool isSystem = EqualSid(
-        reinterpret_cast<TOKEN_USER*>(buffer.data())->User.Sid, systemSid) != FALSE;
-    FreeSid(systemSid);
-    if (!isSystem) return false;
+    auto* user = reinterpret_cast<TOKEN_USER*>(buffer.data());
+    std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> systemSid{};
+    DWORD systemSidSize = static_cast<DWORD>(systemSid.size());
+    const bool isSystem = CreateWellKnownSid(
+        WinLocalSystemSid, nullptr, systemSid.data(), &systemSidSize) &&
+        EqualSid(user->User.Sid, systemSid.data()) != FALSE;
+    if (isSystem && sessionId == 0) return true;
+    if (sessionId == 0) return false;
 
-    required = 0;
-    SetLastError(ERROR_SUCCESS);
-    GetTokenInformation(token.value, TokenRestrictedSids, nullptr, 0, &required);
-    if (required == 0 || GetLastError() != ERROR_INSUFFICIENT_BUFFER) return false;
-    std::vector<std::byte> restrictedBuffer(required);
-    if (!GetTokenInformation(token.value, TokenRestrictedSids,
-                             restrictedBuffer.data(), required, &required)) return false;
-    return reinterpret_cast<TOKEN_GROUPS*>(restrictedBuffer.data())->GroupCount == 0;
+    TOKEN_ELEVATION elevation{};
+    if (!GetTokenInformation(token.value, TokenElevation, &elevation,
+                             sizeof(elevation), &returned) ||
+        elevation.TokenIsElevated == 0) return false;
+    std::array<std::uint8_t, SECURITY_MAX_SID_SIZE> administratorSid{};
+    DWORD administratorSidSize =
+        static_cast<DWORD>(administratorSid.size());
+    if (!CreateWellKnownSid(WinBuiltinAdministratorsSid, nullptr,
+                            administratorSid.data(), &administratorSidSize)) {
+        return false;
+    }
+    BOOL isAdministrator = FALSE;
+    return CheckTokenMembership(token.value, administratorSid.data(),
+                                &isAdministrator) && isAdministrator != FALSE;
 }
 
 bool SamePath(const std::filesystem::path& left,
@@ -165,6 +171,16 @@ bool ProcessPath(DWORD processId, std::wstring& path, HANDLE& process) {
     return true;
 }
 
+BOOL CALLBACK RequestWindowClose(HWND window, LPARAM parameter) {
+    const DWORD targetProcess = static_cast<DWORD>(parameter);
+    DWORD ownerProcess = 0;
+    GetWindowThreadProcessId(window, &ownerProcess);
+    if (ownerProcess == targetProcess) {
+        PostMessageW(window, WM_CLOSE, 0, 0);
+    }
+    return TRUE;
+}
+
 bool CloseInstallProcesses(const std::filesystem::path& installRoot,
                            UpdateChannel channel, std::wstring& error) {
     const auto client = installRoot / L"CampusNetClient.exe";
@@ -194,16 +210,24 @@ bool CloseInstallProcesses(const std::filesystem::path& installRoot,
             HANDLE process = nullptr;
             if (!ProcessPath(entry.th32ProcessID, path, process)) continue;
             const bool shouldClose = matches(path);
-            if (shouldClose && !TerminateProcess(process, ERROR_CANCELLED)) {
-                const DWORD code = GetLastError();
-                if (code != ERROR_ACCESS_DENIED) {
-                    error = L"Could not close an existing CampusNet process (Windows error " +
-                            std::to_wstring(code) + L")";
+            if (shouldClose) {
+                EnumWindows(&RequestWindowClose,
+                            static_cast<LPARAM>(entry.th32ProcessID));
+                DWORD wait = WaitForSingleObject(process, 3000);
+                if (wait == WAIT_TIMEOUT) {
+                    if (!TerminateProcess(process, ERROR_CANCELLED) &&
+                        GetLastError() != ERROR_ACCESS_DENIED) {
+                        const DWORD code = GetLastError();
+                        error = L"Could not terminate a CampusNet process (Windows error " +
+                                std::to_wstring(code) + L")";
+                        success = false;
+                    }
+                    wait = WaitForSingleObject(process, 10000);
+                }
+                if (wait != WAIT_OBJECT_0) {
+                    error = L"Timed out waiting for a CampusNet process to exit";
                     success = false;
                 }
-            } else if (shouldClose && WaitForSingleObject(process, 10000) != WAIT_OBJECT_0) {
-                error = L"Timed out waiting for a CampusNet process to exit";
-                success = false;
             }
             CloseHandle(process);
             if (!success) break;
@@ -217,6 +241,29 @@ class PortableApplyHost final : public IPortableUpdateHost {
 public:
     explicit PortableApplyHost(std::filesystem::path installRoot)
         : installRoot_(std::move(installRoot)) {}
+
+    bool QueryServiceInstallation(bool& installed,
+                                  std::wstring& error) override {
+        installed = false;
+        error.clear();
+        SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+        if (scm == nullptr) {
+            error = L"Could not open Service Control Manager";
+            return false;
+        }
+        SC_HANDLE service = OpenServiceW(scm, kServiceName, SERVICE_QUERY_STATUS);
+        if (service == nullptr) {
+            const DWORD code = GetLastError();
+            CloseServiceHandle(scm);
+            if (code == ERROR_SERVICE_DOES_NOT_EXIST) return true;
+            error = L"Could not query CampusNetService";
+            return false;
+        }
+        installed = true;
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return true;
+    }
 
     bool CloseClientProcesses(std::wstring& error) override {
         return CloseInstallProcesses(installRoot_, UpdateChannel::Portable, error);
@@ -315,7 +362,7 @@ private:
 } // namespace
 
 int RunUpdaterApplyFromEnvironment() {
-    if (!IsSystemSessionZeroProcess()) return ERROR_ACCESS_DENIED;
+    if (!IsAuthorizedApplyProcess()) return ERROR_ACCESS_DENIED;
     std::wstring localVersion;
     std::wstring targetVersion;
     std::wstring channelText;

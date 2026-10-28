@@ -101,12 +101,16 @@ int RunUpdateBrokerTests() {
         ServiceIpcClientContext context;
         context.processId = 44;
         context.sessionId = 0;
-        context.restrictedToken = true;
         context.systemUser = true;
-        context.restrictedCodeSid = true;
         assert(IsAuthorizedUpdateAgentContext(context, 44));
         assert(!IsAuthorizedUpdateAgentContext(context, 45));
+        assert(IsAuthorizedUpdateAgentContext(context, 44));
         context.sessionId = 1;
+        context.systemUser = false;
+        context.interactiveUser = true;
+        context.elevatedAdministrator = true;
+        assert(IsAuthorizedUpdateAgentContext(context, 44));
+        context.elevatedAdministrator = false;
         assert(!IsAuthorizedUpdateAgentContext(context, 44));
     }
     {

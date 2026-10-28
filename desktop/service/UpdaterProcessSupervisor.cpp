@@ -1,7 +1,6 @@
 #include "UpdaterProcessSupervisor.h"
 
 #include <sddl.h>
-#include <userenv.h>
 
 #include <algorithm>
 #include <array>
@@ -12,7 +11,6 @@
 #include <vector>
 
 #pragma comment(lib, "Advapi32.lib")
-#pragma comment(lib, "Userenv.lib")
 
 namespace {
 
@@ -39,20 +37,6 @@ public:
 
 private:
     HANDLE value_ = nullptr;
-};
-
-class LocalSid final {
-public:
-    ~LocalSid() {
-        if (sid_ != nullptr) {
-            FreeSid(sid_);
-        }
-    }
-    PSID* Put() { return &sid_; }
-    PSID Get() const { return sid_; }
-
-private:
-    PSID sid_ = nullptr;
 };
 
 bool BuildEnvironment(std::wstring_view stopHandle,
@@ -185,7 +169,7 @@ bool WindowsUpdaterProcessHost::PrepareStagingDirectory(
     return true;
 }
 
-bool WindowsUpdaterProcessHost::StartRestrictedAgent(
+bool WindowsUpdaterProcessHost::StartAgent(
     const std::filesystem::path& executable, HANDLE& process,
     std::wstring& error) {
     process = nullptr;
@@ -202,31 +186,6 @@ bool WindowsUpdaterProcessHost::StartRestrictedAgent(
         return false;
     }
     if (!PrepareStagingDirectory(error)) {
-        return false;
-    }
-
-    ScopedAgentHandle sourceToken;
-    if (!OpenProcessToken(GetCurrentProcess(),
-                          TOKEN_DUPLICATE | TOKEN_QUERY | TOKEN_ASSIGN_PRIMARY |
-                              TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID,
-                          sourceToken.Put())) {
-        error = L"Could not open the service token for updater isolation";
-        return false;
-    }
-    LocalSid restrictedCode;
-    SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
-    if (!AllocateAndInitializeSid(&ntAuthority, 1, SECURITY_RESTRICTED_CODE_RID,
-                                  0, 0, 0, 0, 0, 0, 0,
-                                  restrictedCode.Put())) {
-        error = L"Could not create the updater restricted-code SID";
-        return false;
-    }
-    SID_AND_ATTRIBUTES restrictedSids[]{{restrictedCode.Get(), 0}};
-    ScopedAgentHandle restrictedToken;
-    if (!CreateRestrictedToken(sourceToken.Get(), DISABLE_MAX_PRIVILEGE, 0,
-                               nullptr, 0, nullptr, 1, restrictedSids,
-                               restrictedToken.Put())) {
-        error = L"Could not create the restricted updater token";
         return false;
     }
 
@@ -273,7 +232,7 @@ bool WindowsUpdaterProcessHost::StartRestrictedAgent(
     if (!BuildEnvironment(FormatHandle(stopEvent.Get()),
                           FormatHandle(checkEvent.Get()),
                           stagingDirectory_.wstring(), environment)) {
-        error = L"Could not build the restricted updater environment";
+        error = L"Could not build the updater environment";
         return false;
     }
     STARTUPINFOEXW startup{};
@@ -285,12 +244,12 @@ bool WindowsUpdaterProcessHost::StartRestrictedAgent(
     std::wstring commandLine = L"\"" + executable.wstring() + L"\"";
     const DWORD flags = CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT |
                         CREATE_NO_WINDOW;
-    if (!CreateProcessAsUserW(
-            restrictedToken.Get(), executable.c_str(), commandLine.data(),
+    if (!CreateProcessW(
+            executable.c_str(), commandLine.data(),
             nullptr, nullptr, TRUE, flags, environment.data(),
             executable.parent_path().c_str(), &startup.StartupInfo,
             &information)) {
-        error = L"Could not start the restricted updater agent";
+        error = L"Could not start the updater with the service token";
         return false;
     }
     CloseHandle(information.hThread);
@@ -441,7 +400,7 @@ bool UpdaterProcessSupervisor::EnsureRunning() {
 
     HANDLE process = nullptr;
     std::wstring error;
-    if (!host_.StartRestrictedAgent(executable_, process, error) ||
+    if (!host_.StartAgent(executable_, process, error) ||
         process == nullptr) {
         ++failureCount_;
         retryAfter_ = now_() + RestartDelay(failureCount_);

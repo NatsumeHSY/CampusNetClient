@@ -58,7 +58,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>Comctl32.lib;Winhttp.lib;Bcrypt.lib;Advapi32.lib;Ole32.lib;Msi.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;Winhttp.lib;Bcrypt.lib;Advapi32.lib;Ole32.lib;Msi.lib;Shell32.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
       <LinkIncremental>false</LinkIncremental>
     </Link>
@@ -70,6 +70,7 @@
     <ClCompile Include="UpdateWindow.cpp" />
     <ClCompile Include="UpdateManifest.cpp" />
     <ClCompile Include="UpdateAgentStatus.cpp" />
+    <ClCompile Include="UpdateSchedule.cpp" />
     <ClCompile Include="UpdateIntegrity.cpp" />
     <ClCompile Include="UpdateDownloader.cpp" />
     <ClCompile Include="WinHttpUpdateTransport.cpp" />
@@ -88,6 +89,7 @@
     <ClInclude Include="UpdateWindow.h" />
     <ClInclude Include="UpdateManifest.h" />
     <ClInclude Include="UpdateAgentStatus.h" />
+    <ClInclude Include="UpdateSchedule.h" />
     <ClInclude Include="UpdateIntegrity.h" />
     <ClInclude Include="UpdateDownloader.h" />
     <ClInclude Include="WinHttpUpdateTransport.h" />

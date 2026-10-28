@@ -560,7 +560,13 @@ PortableUpdateResult PortableUpdateApply::Apply(
         return result;
     }
 
-    if (!host.StopService(error)) {
+    bool serviceInstalled = false;
+    if (!host.QueryServiceInstallation(serviceInstalled, error)) {
+        result.error = error.empty() ? L"Could not query the CampusNet service" : error;
+        RemoveOwnedDirectory(prepared);
+        return result;
+    }
+    if (serviceInstalled && !host.StopService(error)) {
         const std::wstring stopError = error;
         host.StartService(error);
         result.error = stopError.empty() ? L"Could not stop the CampusNet service" : stopError;
@@ -569,7 +575,7 @@ PortableUpdateResult PortableUpdateApply::Apply(
     }
     if (!host.CloseClientProcesses(error)) {
         const std::wstring closeError = error;
-        host.StartService(error);
+        if (serviceInstalled) host.StartService(error);
         result.error = closeError.empty() ? L"Could not close the CampusNet client" : closeError;
         RemoveOwnedDirectory(prepared);
         return result;
@@ -577,7 +583,7 @@ PortableUpdateResult PortableUpdateApply::Apply(
 
     if (!MovePath(derivedInstallRoot, backup)) {
         error = L"Could not move the current install to its rollback directory";
-        host.StartService(error);
+        if (serviceInstalled) host.StartService(error);
         result.error = std::move(error);
         RemoveOwnedDirectory(prepared);
         return result;
@@ -585,7 +591,7 @@ PortableUpdateResult PortableUpdateApply::Apply(
     if (!MovePath(prepared, derivedInstallRoot)) {
         const DWORD moveError = GetLastError();
         const bool restored = MovePath(backup, derivedInstallRoot);
-        host.StartService(error);
+        if (serviceInstalled) host.StartService(error);
         result.rolledBack = restored;
         result.recoveryDirectory = restored ? std::filesystem::path{} : backup;
         result.error = L"Could not place the verified update (Windows error " +
@@ -595,19 +601,20 @@ PortableUpdateResult PortableUpdateApply::Apply(
         return result;
     }
 
-    bool serviceStarted = host.StartService(error) &&
-        host.WaitForServiceRunning(kServiceStartTimeout, error);
+    bool serviceStarted = !serviceInstalled ||
+        (host.StartService(error) &&
+         host.WaitForServiceRunning(kServiceStartTimeout, error));
     if (!serviceStarted) {
         const std::wstring applyError = error.empty()
             ? L"Updated service did not become healthy" : error;
         std::filesystem::path failedNew;
         UniqueSiblingName(parent, L".CampusNetClient-failed-", failedNew);
-        host.StopService(error);
+        if (serviceInstalled) host.StopService(error);
         const bool movedNew = !failedNew.empty() &&
                               MovePath(derivedInstallRoot, failedNew);
         const bool restored = movedNew && MovePath(backup, derivedInstallRoot);
-        bool oldServiceStarted = false;
-        if (restored) {
+        bool oldServiceStarted = !serviceInstalled;
+        if (restored && serviceInstalled) {
             oldServiceStarted = host.StartService(error) &&
                 host.WaitForServiceRunning(kServiceStartTimeout, error);
         }
