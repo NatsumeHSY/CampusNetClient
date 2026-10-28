@@ -1,13 +1,21 @@
 [CmdletBinding()]
 param(
-    [string]$PortablePackageRoot = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'build\package\Release'),
-    [string]$PortableArchive = (Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'build\package') 'CampusNetClient-0.1.0-portable.zip'),
-    [string]$MsiPackage = (Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'build\package') 'CampusNetClient-0.1.0.msi'),
-    [string]$MsiFileInventory = (Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'build\package') 'CampusNetClient-0.1.0.msi.files.json'),
-    [string]$RemoteManifest = (Join-Path (Split-Path -Parent $PSScriptRoot) 'version.json')
+    [string]$PortablePackageRoot,
+    [string]$PortableArchive,
+    [string]$MsiPackage,
+    [string]$MsiFileInventory,
+    [string]$RemoteManifest = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'version.json')
 )
 
 $ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+[xml]$versionProps = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'version.props')
+$releaseVersion = [string]$versionProps.Project.PropertyGroup.CampusNetSemVer
+$packageDirectory = Join-Path (Split-Path -Parent (Split-Path -Parent $repoRoot)) 'build\package'
+if (-not $PortablePackageRoot) { $PortablePackageRoot = Join-Path $packageDirectory 'Release' }
+if (-not $PortableArchive) { $PortableArchive = Join-Path $packageDirectory "CampusNetClient-$releaseVersion-portable.zip" }
+if (-not $MsiPackage) { $MsiPackage = Join-Path $packageDirectory "CampusNetClient-$releaseVersion.msi" }
+if (-not $MsiFileInventory) { $MsiFileInventory = "$MsiPackage.files.json" }
 $root = (Resolve-Path -LiteralPath $PortablePackageRoot).Path
 $archivePath = (Resolve-Path -LiteralPath $PortableArchive).Path
 $msiPath = (Resolve-Path -LiteralPath $MsiPackage).Path

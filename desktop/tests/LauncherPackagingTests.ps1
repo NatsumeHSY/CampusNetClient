@@ -26,7 +26,7 @@ function Assert-Match([string]$Text, [string]$Pattern, [string]$Message) {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$workspaceRoot = Split-Path -Parent $repoRoot
+$workspaceRoot = Split-Path -Parent (Split-Path -Parent $repoRoot)
 $readmePath = Join-Path $repoRoot 'README.md'
 $launcherProjectPath = Join-Path $repoRoot 'launcher\CampusNetLauncher.vcxproj'
 $launcherSourcePath = Join-Path $repoRoot 'launcher\LauncherMain.cpp'

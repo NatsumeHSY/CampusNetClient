@@ -1,9 +1,9 @@
 # MSI 构建
 
-使用 `build-msi.ps1` 构建非 MSIX 的传统 Windows Installer 包。脚本从仓库根目录 `version.props` 读取唯一 SemVer，接收已构建的 Release `bin` 目录，并在 `build\package` 生成 MSI 和同目录 `*.msi.files.json` 安装文件哈希清单。
+使用 `build-msi.ps1` 构建非 MSIX 的传统 Windows Installer 包。脚本从 `desktop/version.props` 读取唯一 SemVer，接收已构建的 Release `bin` 目录，并在仓库外、工作目录根部的 `build\package` 生成 MSI 和同目录 `*.msi.files.json` 安装文件哈希清单。以下命令在工作目录根部执行：
 
 ```powershell
-pwsh -File installer\build-msi.ps1 `
+pwsh -File CampusNetClient\desktop\installer\build-msi.ps1 `
   -PackageBinDir build\package\Release\bin
 ```
 

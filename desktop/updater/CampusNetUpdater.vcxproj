@@ -41,7 +41,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(SolutionDir)..\build</CampusNetBuildRoot>
+    <CampusNetBuildRoot Condition="'$(CampusNetBuildRoot)'==''">$(MSBuildThisFileDirectory)..\..\..\build</CampusNetBuildRoot>
     <CampusNetPackageRoot Condition="'$(CampusNetPackageRoot)'==''">$(CampusNetBuildRoot)\package\$(Configuration)</CampusNetPackageRoot>
     <OutDir>$(CampusNetPackageRoot)\bin\</OutDir>
     <IntDir>$(CampusNetBuildRoot)\obj\$(ProjectName)\$(Configuration)\</IntDir>

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$PackageRoot = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'build\package\Release'),
+    [string]$PackageRoot = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'build\package\Release'),
     [string]$OutputPath,
     [switch]$Force
 )
@@ -24,7 +24,7 @@ if ($localVersion.version -cne $version -or $localVersion.channel -cne 'portable
     throw 'Portable version.json does not match version.props and the portable channel.'
 }
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path (Join-Path (Split-Path -Parent $repoRoot) 'build\package') `
+    $OutputPath = Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $repoRoot)) 'build\package') `
         "CampusNetClient-$version-portable.zip"
 }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)

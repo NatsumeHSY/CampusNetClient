@@ -47,7 +47,7 @@ foreach ($name in $requiredFiles) {
     }
 }
 
-$buildRoot = Join-Path (Split-Path -Parent $repoRoot) 'build'
+$buildRoot = Join-Path (Split-Path -Parent (Split-Path -Parent $repoRoot)) 'build'
 $defaultOutput = Join-Path (Join-Path $buildRoot 'package') "CampusNetClient-$semanticVersion.msi"
 if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = $defaultOutput }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)

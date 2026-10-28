@@ -12,6 +12,8 @@ try {
     New-Item -ItemType Directory -Path $scriptRoot | Out-Null
     Copy-Item (Join-Path $sourceRoot 'tools\Write-LocalVersionJson.ps1') $scriptRoot
     Copy-Item (Join-Path $sourceRoot 'version.props') $testRoot
+    [xml]$expectedProps = Get-Content -Raw -LiteralPath (Join-Path $testRoot 'version.props')
+    $expectedVersion = [string]$expectedProps.Project.PropertyGroup.CampusNetSemVer
     $script = Join-Path $scriptRoot 'Write-LocalVersionJson.ps1'
 
     foreach ($channel in @('portable', 'msi')) {
@@ -20,7 +22,7 @@ try {
         $record = Get-Content -Raw -LiteralPath $output | ConvertFrom-Json
         $keys = @($record.PSObject.Properties.Name | Sort-Object)
         if (($keys -join ',') -ne 'channel,schemaVersion,version' -or
-            $record.schemaVersion -ne 1 -or $record.version -ne '0.1.0' -or
+            $record.schemaVersion -ne 1 -or $record.version -ne $expectedVersion -or
             $record.channel -ne $channel) {
             throw "Unexpected local version record for channel '$channel'."
         }
@@ -28,7 +30,7 @@ try {
 
     $propsPath = Join-Path $testRoot 'version.props'
     $invalidProps = Get-Content -Raw -LiteralPath $propsPath
-    $invalidProps = $invalidProps.Replace('<CampusNetSemVer>0.1.0</CampusNetSemVer>', '<CampusNetSemVer>0.1.0.0</CampusNetSemVer>')
+    $invalidProps = $invalidProps.Replace("<CampusNetSemVer>$expectedVersion</CampusNetSemVer>", '<CampusNetSemVer>0.1.0.0</CampusNetSemVer>')
     Set-Content -LiteralPath $propsPath -Value $invalidProps -NoNewline
     $invalidOutput = Join-Path $testRoot 'invalid\version.json'
     $failed = $false

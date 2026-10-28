@@ -178,7 +178,7 @@ $record = [ordered]@{
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $repoRoot 'version.json' }
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path (Split-Path -Parent $repoRoot) 'version.json' }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
 if ((Test-Path -LiteralPath $OutputPath) -and -not $Force) {
     throw "Update manifest already exists; choose another OutputPath or pass -Force: $OutputPath"

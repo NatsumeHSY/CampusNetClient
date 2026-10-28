@@ -1,5 +1,7 @@
 .vs/
 /docs/
+/desktop/docs/
+/android/docs/
 /.superpowers/
 **/build/
 **/bin/
@@ -22,3 +24,11 @@ CMakeCache.txt
 *.wixpdb
 .ght
 **/.ght
+
+# Android local configuration and generated output
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/local.properties
+*.jks
+*.keystore
