@@ -1,9 +1,15 @@
-#include "HttpPortalClient.h"
+﻿#include "HttpPortalClient.h"
 #include "PortalNetworkIdentity.h"
 
 #include <cassert>
 
 int RunHttpPortalClientTests() {
+    assert(ExtractBossSessionId(L"HTTP/1.1 200 OK\r\nSet-Cookie: JSESSIONID-BOSS-0=Abc-123.node; Path=/; HttpOnly\r\n") == L"Abc-123.node");
+    assert(ExtractBossSessionId(L"Cookie: other=x; JSESSIONID-BOSS-0=session_2") == L"session_2");
+    assert(ExtractBossSessionId(L"Set-Cookie: unrelated=abc").empty());
+    assert(ExtractBossSessionId(L"Set-Cookie: JSESSIONID-BOSS-0=bad/value; Path=/").empty());
+    assert(ExtractBossSessionId(L"Set-Cookie: OTHERJSESSIONID-BOSS-0=abc").empty());
+
     const auto accepted = ClassifyLoginResponse(
         200, {}, L"{\"result\": \"success\", \"message\": \"ok\"}");
     assert(accepted.outcome == HttpLoginOutcome::Success);

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     throw 'LauncherPackagingTests requires PowerShell 7 or later.'
@@ -54,7 +54,6 @@ foreach ($section in $requiredSections) {
     }
 }
 Assert-Match $readme '不提供命令行启动接口' 'README must state that the launcher has no CLI startup interface.'
-Assert-Match $readme 'WebView2 Runtime' 'README must document the WebView2 Runtime requirement.'
 
 $launcherProjectText = Read-RequiredText $launcherProjectPath 'Launcher project'
 $launcherSource = Read-RequiredText $launcherSourcePath 'Launcher source'
@@ -110,7 +109,6 @@ if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) {
     $requiredPayload = @(
         'CampusNetClient.exe',
         'CampusNetService.exe',
-        'WebView2Loader.dll',
         'resources.pri',
         'Microsoft.WindowsAppRuntime.Insights.Resource.dll',
         'Microsoft.UI.Xaml.Controls.dll',

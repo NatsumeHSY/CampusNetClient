@@ -84,7 +84,6 @@
     <ClCompile Include="LoginStateTests.cpp" />
     <ClCompile Include="ClientManagementTests.cpp" />
     <ClCompile Include="LauncherTests.cpp" />
-    <ClCompile Include="WebViewRequestTests.cpp" />
     <ClCompile Include="EndToEndLocalTests.cpp" />
     <ClCompile Include="UpdateManifestTests.cpp" />
     <ClCompile Include="UpdateIntegrityTests.cpp" />
@@ -109,7 +108,6 @@
     <ClCompile Include="PortableUpdateApplyTests.cpp" />
     <ClCompile Include="MsiUpdateApplyTests.cpp" />
     <ClCompile Include="..\launcher\LauncherPaths.cpp" />
-    <ClCompile Include="..\client\WebViewLogin.cpp" />
     <ClCompile Include="..\client\UserSessionLauncher.cpp" />
   </ItemGroup>
   <ItemGroup>

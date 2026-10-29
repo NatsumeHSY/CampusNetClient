@@ -12,7 +12,6 @@
 #include "StandaloneUpdateRuntime.h"
 #include "TrayIcon.h"
 #include "UpdateCheckPresentation.h"
-#include "WebViewLogin.h"
 
 #include <winrt/Microsoft.UI.Dispatching.h>
 #include <winrt/Microsoft.UI.Windowing.h>
@@ -72,8 +71,6 @@ private:
     void SetStatusIllustration(std::wstring_view assetName);
     void StartStatusIndicatorAnimation();
     void HandleTrayCommand(TrayCommand command);
-    void MaybeStartBrowserFallback(std::string_view statusPayload);
-    void SendBrowserLoginResult(const WebViewLoginResult& result);
     void StopPolling();
     void RefreshServiceStatus();
     void SetServiceFeedback(std::wstring message);
@@ -83,7 +80,6 @@ private:
     ClientViewModel viewModel_;
     ServiceIpcClient ipc_;
     std::unique_ptr<TrayIcon> tray_;
-    std::unique_ptr<WebView2LoginHost> webView_;
     Microsoft::UI::Dispatching::DispatcherQueue dispatcher_{nullptr};
     Microsoft::UI::Dispatching::DispatcherQueueTimer updateOverlayTimer_{nullptr};
     std::thread pollThread_;
@@ -100,7 +96,6 @@ private:
     bool loginSucceeded_{false};
     bool loginAttemptPending_{false};
     bool loginAttemptAwaitingRequest_{false};
-    bool browserFlowStarted_{false};
     bool carrierLoaded_{false};
     bool allowWindowClose_{false};
     std::wstring statusIllustrationAsset_;

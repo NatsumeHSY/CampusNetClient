@@ -1,4 +1,4 @@
-#include "ClientViewModel.h"
+﻿#include "ClientViewModel.h"
 #include "ServiceManager.h"
 #include "SingleInstanceActivation.h"
 #include "StartupMode.h"
@@ -24,13 +24,6 @@ bool LoginAttemptAvailabilityBehavesCorrectly(const ViewModel& viewModel) {
 
 int RunClientManagementTests() {
     ClientViewModel viewModel(LoadDefaultConfig());
-    assert(viewModel.UiAutostart());
-    assert(viewModel.WebViewFallbackEnabled());
-    viewModel.SetUiAutostart(false);
-    assert(!viewModel.UiAutostart());
-    assert(!viewModel.WebViewFallbackEnabled());
-    assert(viewModel.WebViewFallbackNotice().find(L"WebView2") !=
-           std::wstring::npos);
 
     assert(viewModel.CanRequestLogin(std::nullopt, false));
     assert(!viewModel.CanRequestLogin(std::nullopt, true));

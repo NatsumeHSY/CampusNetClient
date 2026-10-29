@@ -1,4 +1,4 @@
-#include "Config.h"
+﻿#include "Config.h"
 
 #include <cassert>
 #ifdef _DEBUG
@@ -16,7 +16,6 @@ int RunProtocolTests();
 int RunLoginStateTests();
 int RunClientManagementTests();
 int RunLauncherTests();
-void RunWebViewRequestTests();
 int RunEndToEndLocalTests();
 int RunUpdateManifestTests();
 int RunUpdateIntegrityTests();
@@ -39,15 +38,19 @@ int wmain() {
     assert(defaults.carrier == L"telecom");
     AppConfig mobile = defaults;
     mobile.carrier = L"mobile";
+    mobile.uiAutostart = false;
+    mobile.mobileAcName = L"other-ac";
+    mobile.mobileVlan = L"3020";
     assert(LoginPortalUrl(mobile) == L"http://1.1.1.1/");
     const auto mobilePath = std::filesystem::temp_directory_path() / L"campus-net-mobile-test.json";
     assert(SaveConfig(mobilePath, mobile));
     assert(LoadConfig(mobilePath).carrier == L"mobile");
+    assert(!LoadConfig(mobilePath).uiAutostart);
+    assert(LoadConfig(mobilePath).mobileAcName == L"other-ac");
+    assert(LoadConfig(mobilePath).mobileVlan == L"3020");
     std::filesystem::remove(mobilePath);
     assert(defaults.portalUrl == L"http://10.10.12.13/");
     assert(defaults.maxLoginAttempts == 1);
-    assert(defaults.uiAutostart);
-    assert(!defaults.showWebView);
     assert(defaults.httpTimeoutMs > 0);
 
     std::wstring error;
@@ -66,8 +69,6 @@ int wmain() {
     const AppConfig loaded = LoadConfig(path);
     assert(loaded.gateway == defaults.gateway);
     assert(loaded.portalUrl == defaults.portalUrl);
-    assert(loaded.uiAutostart == defaults.uiAutostart);
-    assert(loaded.showWebView == defaults.showWebView);
     assert(loaded.httpTimeoutMs == defaults.httpTimeoutMs);
     std::filesystem::remove(path);
 
@@ -91,7 +92,6 @@ int wmain() {
     assert(RunLoginStateTests() == 0);
     assert(RunClientManagementTests() == 0);
     assert(RunLauncherTests() == 0);
-    RunWebViewRequestTests();
     assert(RunEndToEndLocalTests() == 0);
     assert(RunUpdateManifestTests() == 0);
     assert(RunUpdateIntegrityTests() == 0);

@@ -1,4 +1,4 @@
-#include "Config.h"
+﻿#include "Config.h"
 #include "Protocol.h"
 #include "ServiceManager.h"
 
@@ -21,10 +21,6 @@ int RunEndToEndLocalTests() {
     gate.Release();
 
     AppConfig config = LoadDefaultConfig();
-    config.uiAutostart = false;
-    assert(!config.uiAutostart);
-    config.uiAutostart = true;
-    assert(config.uiAutostart);
 
     std::wstring error;
     const ProtocolMessage request{kProtocolVersion, MessageType::GetStatus,

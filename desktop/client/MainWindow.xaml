@@ -19,18 +19,15 @@
                                  RepeatBehavior="Forever" />
             </Storyboard>
         </Grid.Resources>
-
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-
         <StackPanel Spacing="6">
             <TextBlock Text="广航海校园网自动登录" FontSize="28" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                        />
         </StackPanel>
-
         <ScrollViewer x:Name="MainContentScrollViewer" Grid.Row="1" Margin="0,18,0,0"
                       VerticalAlignment="Stretch"
                       VerticalContentAlignment="Stretch"
@@ -41,7 +38,6 @@
                     <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
-
                 <StackPanel Grid.Column="0" Spacing="14">
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -97,7 +93,6 @@
                                              Severity="Error"
                                              Title="登录失败" />
                                 </StackPanel>
-
                                 <Canvas Width="180"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Stretch"
@@ -111,7 +106,6 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1" CornerRadius="12" Padding="20">
@@ -135,26 +129,16 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-
                 <StackPanel Grid.Column="1" Spacing="14">
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1" CornerRadius="12" Padding="20">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="后台行为" FontSize="20"
-                                       FontWeight="SemiBold"
-                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                            <ToggleSwitch x:Name="UiAutostartToggle"
-                                          Header="允许服务自动拉起 UI"
-                                          OnContent="开启" OffContent="关闭" />
-                            <InfoBar x:Name="FallbackInfoBar"
-                                     IsOpen="True"
-                                     IsClosable="False"
-                                     Severity="Informational"
-                                     Message="关闭后，服务仍可运行，但 WebView2 自动兜底登录不会启动。" />
+                            <TextBlock Text="后台行为" FontSize="20" FontWeight="SemiBold" />
+                            <ToggleSwitch x:Name="UiAutostartToggle" Header="客户端开机自启" OnContent="开启" OffContent="关闭" />
+                            <TextBlock Text="登录 Windows 后由服务在后台启动客户端。" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
-
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1" CornerRadius="12" Padding="20">
@@ -212,7 +196,6 @@
                 </StackPanel>
             </Grid>
         </ScrollViewer>
-
         <Grid x:Name="UpdateCheckOverlay"
               Grid.Row="1"
               Margin="0,18,0,0"
@@ -243,6 +226,5 @@
                 </StackPanel>
             </Border>
         </Grid>
-
     </Grid>
 </Window>

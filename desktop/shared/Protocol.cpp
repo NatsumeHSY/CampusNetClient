@@ -1,4 +1,4 @@
-#include "Protocol.h"
+﻿#include "Protocol.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -264,12 +264,6 @@ std::wstring MessageTypeName(MessageType type) {
         return L"LoginNow";
     case MessageType::CheckInternet:
         return L"CheckInternet";
-    case MessageType::BrowserLoginRequest:
-        return L"BrowserLoginRequest";
-    case MessageType::BrowserLoginResult:
-        return L"BrowserLoginResult";
-    case MessageType::SetUiAutostart:
-        return L"SetUiAutostart";
     case MessageType::GetLogs:
         return L"GetLogs";
     case MessageType::ServiceCommand:
@@ -293,8 +287,6 @@ std::optional<MessageType> ParseMessageType(std::wstring_view name) {
         MessageType::GetStatus,          MessageType::GetConfig,
         MessageType::UpdateConfig,       MessageType::SetCredentials,
         MessageType::LoginNow,           MessageType::CheckInternet,
-        MessageType::BrowserLoginRequest, MessageType::BrowserLoginResult,
-        MessageType::SetUiAutostart,     MessageType::GetLogs,
         MessageType::ServiceCommand,   MessageType::CheckForUpdates,
         MessageType::GetUpdateStatus,  MessageType::ShowUpdater,
         MessageType::ApplyStagedUpdate, MessageType::UpdateAgentStatus,

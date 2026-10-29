@@ -13,7 +13,6 @@ public:
     ServiceStatus Snapshot() const;
     void Update(LoginState state, std::wstring_view message);
     void SetUiConnected(bool connected);
-    void SetUiAutostart(bool enabled);
     void SetInternetAvailable(bool available);
     void SetInternetStatus(bool available, std::wstring_view publicIp,
                            unsigned statusCode);

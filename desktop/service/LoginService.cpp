@@ -1,4 +1,4 @@
-#include "LoginService.h"
+﻿#include "LoginService.h"
 
 #include <thread>
 #include <utility>
@@ -19,16 +19,14 @@ void DefaultSleeper(int milliseconds) {
 
 LoginService::LoginService(AppConfig config, ICredentialStore& credentials,
                            ILoginTransport& transport,
-                           IBrowserFallbackRequester& browser, Clock clock,
+                           Clock clock,
                            Sleeper sleeper)
     : config_(std::move(config)),
       credentials_(credentials),
       transport_(transport),
-      browser_(browser),
       state_(true),
       clock_(clock ? std::move(clock) : DefaultClock),
       sleeper_(sleeper ? std::move(sleeper) : DefaultSleeper) {
-    state_.SetUiAutostart(config_.uiAutostart);
 }
 
 LoginRunSummary LoginService::RunOnce() {
@@ -84,7 +82,9 @@ LoginRunSummary LoginService::RunOnce() {
                       message);
     }
 
-    return FallbackAfterHttpFailure();
+    ScheduleBackoff();
+    return Finish(LoginRunResult::Failed, LoginState::Failed,
+                  lastLogin.message.empty() ? L"HTTP portal login failed" : lastLogin.message);
 }
 
 LoginRunSummary LoginService::OnNetworkChanged() {
@@ -95,30 +95,11 @@ LoginRunSummary LoginService::OnNetworkChanged() {
     return RunOnce();
 }
 
-void LoginService::OnBrowserLoginResult(bool success, std::wstring_view message) {
-    std::scoped_lock lock(mutex_);
-    if (!browserRequestPending_) {
-        return;
-    }
-    browserRequestPending_ = false;
-    nextRetry_.reset();
-    if (success) {
-        state_.Update(LoginState::Succeeded, message.empty()
-                                             ? L"browser login succeeded"
-                                             : message);
-    } else {
-        state_.Update(LoginState::Failed, message.empty()
-                                         ? L"browser login failed"
-                                         : message);
-    }
-}
-
 ServiceStatus LoginService::Status() const { return state_.Snapshot(); }
 
 void LoginService::SetConfig(AppConfig config) {
     std::scoped_lock lock(mutex_);
     config_ = std::move(config);
-    state_.SetUiAutostart(config_.uiAutostart);
 }
 
 void LoginService::SetUiConnected(bool connected) {
@@ -135,40 +116,6 @@ LoginRunSummary LoginService::Finish(LoginRunResult result, LoginState state,
                                      std::wstring_view message) {
     state_.Update(state, message);
     return {result, Status()};
-}
-
-LoginRunSummary LoginService::FallbackAfterHttpFailure() {
-    bool uiAutostart = false;
-    {
-        std::scoped_lock lock(mutex_);
-        uiAutostart = config_.uiAutostart;
-    }
-
-    if (!uiAutostart || !browser_.HasInteractiveUser()) {
-        ScheduleBackoff();
-        return Finish(LoginRunResult::BrowserFallbackDisabled,
-                      LoginState::BrowserFallbackDisabled,
-                      L"HTTP login failed and browser fallback is disabled");
-    }
-
-    const std::wstring requestId = NextRequestId();
-    state_.Update(LoginState::RequestingBrowserFallback,
-                  L"requesting browser fallback from UI");
-    if (!browser_.RequestBrowserLogin(requestId)) {
-        ScheduleBackoff();
-        return Finish(LoginRunResult::BrowserFallbackFailed, LoginState::Failed,
-                      L"UI did not accept browser fallback request");
-    }
-
-    {
-        std::scoped_lock lock(mutex_);
-        browserRequestPending_ = true;
-    }
-    return {LoginRunResult::BrowserFallbackRequested, Status()};
-}
-
-std::wstring LoginService::NextRequestId() {
-    return L"browser-" + std::to_wstring(++requestSequence_);
 }
 
 void LoginService::ScheduleBackoff() {

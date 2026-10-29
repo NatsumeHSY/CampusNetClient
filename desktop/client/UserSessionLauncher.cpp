@@ -117,8 +117,29 @@ bool UserSessionLauncher::LaunchInActiveSession(
     }
     Handle token(userToken);
 
+    TOKEN_ELEVATION_TYPE elevationType{};
+    DWORD returned = 0;
+    if (!GetTokenInformation(token.get(), TokenElevationType, &elevationType, sizeof(elevationType), &returned)) {
+        error = L"unable to inspect the interactive token";
+        return false;
+    }
+    TOKEN_LINKED_TOKEN linked{};
+    HANDLE effectiveToken = token.get();
+    if (elevationType == TokenElevationTypeLimited) {
+        if (!GetTokenInformation(token.get(), TokenLinkedToken, &linked, sizeof(linked), &returned)) {
+            error = L"an elevated administrator token is unavailable";
+            return false;
+        }
+        effectiveToken = linked.LinkedToken;
+    }
+    Handle elevated(linked.LinkedToken);
+    TOKEN_ELEVATION elevation{};
+    if (!GetTokenInformation(effectiveToken, TokenElevation, &elevation, sizeof(elevation), &returned) || !elevation.TokenIsElevated) {
+        error = L"the interactive user has no elevated administrator token";
+        return false;
+    }
     HANDLE primaryToken = nullptr;
-    if (!DuplicateTokenEx(token.get(), TOKEN_ALL_ACCESS, nullptr,
+    if (!DuplicateTokenEx(effectiveToken, TOKEN_ALL_ACCESS, nullptr,
                           SecurityImpersonation, TokenPrimary, &primaryToken)) {
         error = L"the active user's primary token could not be created";
         return false;

@@ -1,4 +1,4 @@
-#include "ServiceState.h"
+﻿#include "ServiceState.h"
 
 #include <chrono>
 
@@ -36,11 +36,6 @@ void ServiceState::SetUiConnected(bool connected) {
     Touch();
 }
 
-void ServiceState::SetUiAutostart(bool enabled) {
-    std::scoped_lock lock(mutex_);
-    status_.uiAutostart = enabled;
-    Touch();
-}
 
 void ServiceState::SetInternetAvailable(bool available) {
     std::scoped_lock lock(mutex_);

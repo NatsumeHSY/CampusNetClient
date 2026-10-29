@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $xamlPath = Join-Path $PSScriptRoot '..\client\MainWindow.xaml'
 $cppPath = Join-Path $PSScriptRoot '..\client\MainWindow.xaml.cpp'
@@ -103,9 +103,6 @@ if ($xaml -notmatch 'Storyboard\.TargetName="StatusIndicator"[\s\S]*RepeatBehavi
     throw 'StatusIndicator breathing animation must target the indicator and repeat forever.'
 }
 
-if ($xaml -match 'x:Name="FallbackText"') {
-    throw 'The obsolete WebView2 fallback text must be removed from the status card.'
-}
 
 $statusTextBlock = [regex]::Match(
     $xaml, '<TextBlock x:Name="StatusText"[\s\S]*?/>').Value

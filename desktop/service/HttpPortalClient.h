@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Config.h"
 #include "CredentialStore.h"
@@ -53,3 +53,6 @@ private:
     Logger* logger_;
     mutable std::atomic<bool> cancelled_{false};
 };
+
+// BOSS session identifiers may appear in response or outgoing Cookie headers.
+std::wstring ExtractBossSessionId(std::wstring_view headers);

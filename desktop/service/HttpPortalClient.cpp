@@ -1,4 +1,4 @@
-#include "HttpPortalClient.h"
+﻿#include "HttpPortalClient.h"
 
 #include "Logger.h"
 #include "PortalFormParser.h"
@@ -41,6 +41,7 @@ struct Response {
     bool transportOk{false};
     unsigned statusCode{0};
     std::wstring location;
+    std::wstring cookies;
     std::wstring body;
 };
 
@@ -197,7 +198,7 @@ std::string ToUtf8(std::wstring_view value) {
 
 Response Request(std::wstring_view url, std::wstring_view method,
                  std::wstring_view body, std::wstring_view extraHeaders,
-                 int timeoutMs, HINTERNET sharedSession = nullptr) {
+                 int timeoutMs, HINTERNET sharedSession = nullptr, bool followRedirects = true) {
     ParsedUrl parsed;
     if (!ParseUrl(url, parsed)) {
         return {};
@@ -228,6 +229,10 @@ Response Request(std::wstring_view url, std::wstring_view method,
     }
     WinHttpSetTimeouts(request.get(), timeoutMs, timeoutMs, timeoutMs,
                        timeoutMs);
+    if (!followRedirects) {
+        DWORD policy = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
+        WinHttpSetOption(request.get(), WINHTTP_OPTION_REDIRECT_POLICY, &policy, sizeof(policy));
+    }
     DWORD maxRedirects = 5;
     WinHttpSetOption(request.get(), WINHTTP_OPTION_MAX_HTTP_AUTOMATIC_REDIRECTS,
                      &maxRedirects, sizeof(maxRedirects));
@@ -267,6 +272,8 @@ Response Request(std::wstring_view url, std::wstring_view method,
     response.transportOk = true;
     response.statusCode = status;
     response.location = QueryHeader(request.get(), WINHTTP_QUERY_LOCATION);
+    response.cookies = QueryHeader(request.get(), WINHTTP_QUERY_RAW_HEADERS_CRLF) + L"\r\nCookie: " +
+        QueryHeader(request.get(), WINHTTP_QUERY_COOKIE | WINHTTP_QUERY_FLAG_REQUEST_HEADERS);
     response.body = ReadBody(request.get());
     return response;
 }
@@ -471,6 +478,15 @@ std::wstring ParsePublicIpResponse(std::wstring_view response) {
     return {};
 }
 
+std::wstring ExtractBossSessionId(std::wstring_view headers) {
+    const std::wstring owned(headers);
+    std::wsmatch match;
+    const std::wregex cookie(LR"((?:^|[;\s])JSESSIONID-BOSS-0=([^;\s]+))", std::regex_constants::icase);
+    if (!std::regex_search(owned, match, cookie)) return {};
+    const auto sid = match[1].str();
+    return sid.find_first_not_of(L"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._") == std::wstring::npos ? sid : L"";
+}
+
 HttpPortalClient::HttpPortalClient(Logger* logger) : logger_(logger) {}
 
 void HttpPortalClient::Cancel() noexcept { cancelled_.store(true); }
@@ -482,32 +498,95 @@ HttpLoginResult HttpPortalClient::Login(const AppConfig& config,
     }
 
     if (config.carrier == L"mobile") {
+        // Dr.COM BOSS: discover gateway parameters, establish a session, then POST.
+        const auto identity = ReadPortalNetworkIdentity();
+        if (identity.ipv4.empty() || identity.mac.empty())
+            return {HttpLoginOutcome::InvalidResponse, 0, {}, L"移动认证失败：未找到校园网 IPv4 或 MAC"};
         WinHttpHandle session(WinHttpOpen(L"CampusNetClient/1.0",
-            WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
-            WINHTTP_NO_PROXY_BYPASS, 0));
-        if (!session) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal session creation failed"};
-        const auto page = Request(LoginPortalUrl(config), L"GET", {}, {},
-                                  config.httpTimeoutMs, session.get());
-        if (!page.transportOk) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal is unreachable"};
-        const auto form = ParseLoginForm(page.body);
-        if (!form) {
-            const auto internet = CheckInternet(config);
-            if (!internet.publicIp.empty() || internet.statusCode == 204) return {HttpLoginOutcome::Success, page.statusCode, {}, L"Network already authenticated"};
-            return {HttpLoginOutcome::InvalidResponse, page.statusCode, {}, L"Mobile portal is missing goLoginForm"};
+            WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
+        if (!session) return {HttpLoginOutcome::TransportError, 0, {}, L"移动认证会话创建失败"};
+        auto encode = [](std::wstring_view value) {
+            const auto bytes = ToUtf8(value);
+            const wchar_t* digits = L"0123456789ABCDEF";
+            std::wstring result;
+            for (unsigned char c : bytes) {
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                    (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') result += c;
+                else { result += L'%'; result += digits[c >> 4]; result += digits[c & 15]; }
+            }
+            return result;
+        };
+        auto decode = [](std::wstring_view value) {
+            std::wstring result;
+            auto hex = [](wchar_t c) -> int {
+                if (c >= L'0' && c <= L'9') return c - L'0';
+                if (c >= L'a' && c <= L'f') return c - L'a' + 10;
+                if (c >= L'A' && c <= L'F') return c - L'A' + 10;
+                return -1;
+            };
+            for (size_t i = 0; i < value.size(); ++i) {
+                if (value[i] == L'%' && i + 2 < value.size() && hex(value[i+1]) >= 0 && hex(value[i+2]) >= 0) {
+                    result += static_cast<wchar_t>(hex(value[i+1])*16 + hex(value[i+2])); i += 2;
+                } else result += value[i] == L'+' ? L' ' : value[i];
+            }
+            return result;
+        };
+        std::wstring acip = L"1.1.1.1", acname = config.mobileAcName, vlan = config.mobileVlan;
+        std::wstring ip = identity.ipv4, mac = identity.mac;
+        if (mac.size() == 12) {
+            for (size_t i = 10; i > 0; i -= 2) mac.insert(i, L":");
         }
-        const auto pageUrl = page.finalUrl.empty() ? LoginPortalUrl(config) : page.finalUrl;
-        const auto login = Request(MobileLoginAction(*form, pageUrl), L"POST",
-            BuildMobileLoginBody(*form, credentials),
-            L"Content-Type: application/x-www-form-urlencoded\r\nReferer: " + pageUrl + L"\r\n",
-            config.httpTimeoutMs, session.get());
-        if (!login.transportOk) return {HttpLoginOutcome::TransportError, 0, {}, L"Mobile portal POST failed"};
+        // Follow HTTP redirects in the same cookie session. Never send credentials
+        // to a redirect target: authentication is pinned to the campus BOSS origin.
+        const auto discovery = Request(L"http://1.1.1.1/", L"GET", {}, {}, config.httpTimeoutMs, session.get());
+        const auto question = discovery.finalUrl.find(L'?');
+        if (question != std::wstring::npos) {
+            const auto query = discovery.finalUrl.substr(question + 1);
+            size_t offset = 0;
+            while (offset < query.size()) {
+                const auto end = query.find(L'&', offset);
+                const auto item = query.substr(offset, end == std::wstring::npos ? end : end - offset);
+                const auto equals = item.find(L'=');
+                if (equals != std::wstring::npos) {
+                    const auto key = item.substr(0, equals), value = decode(item.substr(equals + 1));
+                    if (!value.empty()) {
+                        if (key == L"wlanacip") acip = value;
+                        else if (key == L"wlanacname") acname = value;
+                        else if (key == L"vlan") vlan = value;
+                        else if (key == L"wlanuserip") ip = value;
+                        else if (key == L"mac") mac = value;
+                    }
+                }
+                if (end == std::wstring::npos) break;
+                offset = end + 1;
+            }
+        }
+        const std::wstring fields = L"wlanacip=" + encode(acip) + L"&wlanacname=" + encode(acname) +
+            L"&wlanuserip=" + encode(ip) + L"&mac=" + encode(mac) + L"&vlan=" + encode(vlan) +
+            L"&url=http%3A%2F%2Fconnect.rom.miui.com%2F";
+        const std::wstring portalUrl = L"http://1.1.1.1:8888/webauth.do";
+        const auto page = Request(portalUrl + L"?" + fields, L"GET", {}, {}, config.httpTimeoutMs, session.get());
+        if (!page.transportOk || page.statusCode != 200)
+            return {HttpLoginOutcome::TransportError, page.statusCode, {}, L"移动认证失败：无法获取 BOSS 会话"};
+        const auto sid = ExtractBossSessionId(page.cookies + L"\r\n" + discovery.cookies);
+        if (sid.empty())
+            return {HttpLoginOutcome::InvalidResponse, page.statusCode, {}, L"移动认证失败：门户未返回有效 JSESSIONID-BOSS-0"};
+        if (cancelled_.load()) return {HttpLoginOutcome::Cancelled, 0, {}, L"Login cancelled"};
+        const auto login = Request(portalUrl + L";JSESSIONID-BOSS-0=" + sid + L"?" + fields,
+            L"POST", L"userId=" + encode(credentials.username) + L"&passwd=" + encode(credentials.password) +
+            L"&" + fields + L"&pageid=-1",
+            L"Content-Type: application/x-www-form-urlencoded\r\nCookie: JSESSIONID-BOSS-0=" + sid + L"\r\n",
+            config.httpTimeoutMs, session.get(), false);
+        if (!login.transportOk) return {HttpLoginOutcome::TransportError, 0, {}, L"移动认证失败：BOSS 登录提交失败"};
         for (int i = 0; i < config.verificationAttempts && !cancelled_.load(); ++i) {
-            const auto internet = CheckInternet(config);
-            if (!internet.publicIp.empty() || internet.statusCode == 204) return {HttpLoginOutcome::Success, login.statusCode, {}, L"Mobile network authenticated"};
-            if (i + 1 < config.verificationAttempts) std::this_thread::sleep_for(std::chrono::milliseconds(config.verifyIntervalMs));
+            std::this_thread::sleep_for(std::chrono::milliseconds(i == 0 ? 3000 : config.verifyIntervalMs));
+            const auto probe = Request(L"http://connect.rom.miui.com/generate_204", L"GET", {}, {},
+                                      config.verifyTimeoutMs, session.get(), false);
+            if (probe.transportOk && probe.statusCode == 204)
+                return {HttpLoginOutcome::Success, login.statusCode, {}, L"移动校园网认证成功"};
         }
         return {cancelled_.load() ? HttpLoginOutcome::Cancelled : HttpLoginOutcome::LoginRejected,
-                login.statusCode, {}, L"Mobile authentication failed: Internet remains unreachable"};
+                login.statusCode, {}, L"移动认证失败：提交后外网探测未返回 HTTP 204，请检查账号和网关参数"};
     }
 
     ParsedUrl portal;

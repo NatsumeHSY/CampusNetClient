@@ -1,16 +1,15 @@
 #pragma once
-
 #include <filesystem>
 #include <string>
 #include <vector>
-
 struct InternetCheckEndpoint {
     std::wstring url;
     unsigned expectedStatus{200};
 };
-
 struct AppConfig {
     std::wstring carrier{L"telecom"};
+    std::wstring mobileAcName{L"hhxy"};
+    std::wstring mobileVlan{L"3017"};
     std::wstring gateway{L"10.10.12.13"};
     std::wstring portalUrl{L"http://10.10.12.13/"};
     std::vector<InternetCheckEndpoint> internetChecks{
@@ -24,10 +23,8 @@ struct AppConfig {
     int verificationAttempts{8};
     int verifyIntervalMs{600};
     bool uiAutostart{true};
-    bool showWebView{false};
     bool autoLogout{false};
 };
-
 AppConfig LoadDefaultConfig();
 AppConfig LoadConfig(const std::filesystem::path& path);
 bool SaveConfig(const std::filesystem::path& path, const AppConfig& config);

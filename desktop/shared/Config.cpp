@@ -1,13 +1,9 @@
-#include "Config.h"
-
+﻿#include "Config.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
 #include <fstream>
 #include <sstream>
-
 namespace {
-
 std::string ToUtf8(const std::wstring& value) {
     if (value.empty()) {
         return {};
@@ -20,7 +16,6 @@ std::string ToUtf8(const std::wstring& value) {
     WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), result.data(), size, nullptr, nullptr);
     return result;
 }
-
 std::wstring FromUtf8(const std::string& value) {
     if (value.empty()) {
         return {};
@@ -33,7 +28,6 @@ std::wstring FromUtf8(const std::string& value) {
     MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), result.data(), size);
     return result;
 }
-
 std::string EscapeJson(const std::wstring& value) {
     std::string output;
     for (const wchar_t ch : value) {
@@ -48,7 +42,6 @@ std::string EscapeJson(const std::wstring& value) {
     }
     return output;
 }
-
 bool FindJsonString(const std::string& json, const std::string& key, std::wstring& value) {
     const std::string marker = "\"" + key + "\"";
     const size_t markerPos = json.find(marker);
@@ -90,7 +83,6 @@ bool FindJsonString(const std::string& json, const std::string& key, std::wstrin
     }
     return false;
 }
-
 bool FindJsonBool(const std::string& json, const std::string& key, bool& value) {
     const std::string marker = "\"" + key + "\"";
     const size_t markerPos = json.find(marker);
@@ -115,7 +107,6 @@ bool FindJsonBool(const std::string& json, const std::string& key, bool& value) 
     }
     return false;
 }
-
 bool FindJsonInt(const std::string& json, const std::string& key, int& value) {
     const std::string marker = "\"" + key + "\"";
     const size_t markerPos = json.find(marker);
@@ -142,13 +133,10 @@ bool FindJsonInt(const std::string& json, const std::string& key, int& value) {
         return false;
     }
 }
-
 } // namespace
-
 AppConfig LoadDefaultConfig() {
     return {};
 }
-
 AppConfig LoadConfig(const std::filesystem::path& path) {
     AppConfig config = LoadDefaultConfig();
     std::ifstream input(path, std::ios::binary);
@@ -156,8 +144,9 @@ AppConfig LoadConfig(const std::filesystem::path& path) {
         return config;
     }
     const std::string json((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-
     std::wstring stringValue;
+    if (FindJsonString(json, "mobileAcName", stringValue)) config.mobileAcName = stringValue;
+    if (FindJsonString(json, "mobileVlan", stringValue)) config.mobileVlan = stringValue;
     if (FindJsonString(json, "carrier", stringValue)) config.carrier = stringValue;
     if (FindJsonString(json, "gateway", stringValue)) config.gateway = stringValue;
     if (FindJsonString(json, "portalUrl", stringValue)) config.portalUrl = stringValue;
@@ -178,16 +167,13 @@ AppConfig LoadConfig(const std::filesystem::path& path) {
     FindJsonInt(json, "verificationAttempts", config.verificationAttempts);
     FindJsonInt(json, "verifyIntervalMs", config.verifyIntervalMs);
     FindJsonBool(json, "uiAutostart", config.uiAutostart);
-    FindJsonBool(json, "showWebView", config.showWebView);
     FindJsonBool(json, "autoLogout", config.autoLogout);
-
     std::wstring error;
     if (!ValidateConfig(config, error)) {
         return LoadDefaultConfig();
     }
     return config;
 }
-
 bool SaveConfig(const std::filesystem::path& path, const AppConfig& config) {
     std::wstring error;
     if (!ValidateConfig(config, error)) {
@@ -206,6 +192,8 @@ bool SaveConfig(const std::filesystem::path& path, const AppConfig& config) {
     }
     output << "{\n"
            << "  \"carrier\": \"" << EscapeJson(config.carrier) << "\",\n"
+           << "  \"mobileAcName\": \"" << EscapeJson(config.mobileAcName) << "\",\n"
+           << "  \"mobileVlan\": \"" << EscapeJson(config.mobileVlan) << "\",\n"
            << "  \"gateway\": \"" << EscapeJson(config.gateway) << "\",\n"
            << "  \"portalUrl\": \"" << EscapeJson(config.portalUrl) << "\",\n"
            << "  \"httpTimeoutMs\": " << config.httpTimeoutMs << ",\n"
@@ -215,12 +203,10 @@ bool SaveConfig(const std::filesystem::path& path, const AppConfig& config) {
            << "  \"verificationAttempts\": " << config.verificationAttempts << ",\n"
            << "  \"verifyIntervalMs\": " << config.verifyIntervalMs << ",\n"
            << "  \"uiAutostart\": " << (config.uiAutostart ? "true" : "false") << ",\n"
-           << "  \"showWebView\": " << (config.showWebView ? "true" : "false") << ",\n"
            << "  \"autoLogout\": " << (config.autoLogout ? "true" : "false") << "\n"
            << "}\n";
     return output.good();
 }
-
 bool ValidateConfig(const AppConfig& config, std::wstring& error) {
     if (config.carrier != L"telecom" && config.carrier != L"mobile") {
         error = L"unsupported carrier";
@@ -253,7 +239,6 @@ bool ValidateConfig(const AppConfig& config, std::wstring& error) {
     error.clear();
     return true;
 }
-
 std::filesystem::path ConfigPath() {
     wchar_t buffer[MAX_PATH]{};
     const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
@@ -262,7 +247,6 @@ std::filesystem::path ConfigPath() {
     }
     return std::filesystem::path(buffer).parent_path() / L"config.json";
 }
-
 std::wstring LoginPortalUrl(const AppConfig& config) {
     return config.carrier == L"mobile" ? L"http://1.1.1.1/" : config.portalUrl;
 }

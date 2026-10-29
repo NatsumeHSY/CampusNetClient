@@ -1,4 +1,4 @@
-#include "HttpPortalClient.h"
+﻿#include "HttpPortalClient.h"
 #include "LoginService.h"
 #include "NetworkMonitor.h"
 #include "ServiceIpc.h"
@@ -7,19 +7,16 @@
 #include "UpdateApplyProcessHost.h"
 #include "UpdateBroker.h"
 #include "UpdaterProcessSupervisor.h"
-
 #include "Config.h"
 #include "CredentialStore.h"
 #include "Logger.h"
 #include "UserSessionLauncher.h"
 #include "UpdateManifest.h"
-
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 #include <ShlObj.h>
-
 #include <algorithm>
 #include <condition_variable>
 #include <cwchar>
@@ -31,15 +28,11 @@
 #include <string>
 #include <string_view>
 #include <thread>
-
 #pragma comment(lib, "Shell32.lib")
 #pragma comment(lib, "Ole32.lib")
-
 namespace {
-
 SERVICE_STATUS_HANDLE g_statusHandle = nullptr;
 SERVICE_STATUS g_status{};
-
 std::wstring JsonEscape(std::wstring value) {
     std::size_t position = 0;
     while ((position = value.find(L'\\', position)) != std::wstring::npos) {
@@ -53,7 +46,6 @@ std::wstring JsonEscape(std::wstring value) {
     }
     return value;
 }
-
 std::wstring ExtractString(std::string_view payload, std::string_view key) {
     const std::string marker = "\"" + std::string(key) + "\":\"";
     const std::size_t start = payload.find(marker);
@@ -77,7 +69,6 @@ std::wstring ExtractString(std::string_view payload, std::string_view key) {
                         static_cast<int>(value.size()), result.data(), size);
     return result;
 }
-
 bool ExtractBool(std::string_view payload, std::string_view key, bool& value) {
     const std::string marker = "\"" + std::string(key) + "\":";
     const std::size_t start = payload.find(marker);
@@ -95,7 +86,6 @@ bool ExtractBool(std::string_view payload, std::string_view key, bool& value) {
     }
     return false;
 }
-
 const wchar_t* StateName(LoginState state) {
     switch (state) {
     case LoginState::Idle:
@@ -106,30 +96,21 @@ const wchar_t* StateName(LoginState state) {
         return L"CheckingInternet";
     case LoginState::HttpLogin:
         return L"HttpLogin";
-    case LoginState::RequestingBrowserFallback:
-        return L"RequestingBrowserFallback";
-    case LoginState::BrowserLogin:
-        return L"BrowserLogin";
     case LoginState::VerifyingInternet:
         return L"VerifyingInternet";
     case LoginState::Succeeded:
         return L"Succeeded";
     case LoginState::Failed:
         return L"Failed";
-    case LoginState::BrowserFallbackDisabled:
-        return L"BrowserFallbackDisabled";
     }
     return L"Unknown";
 }
-
 std::wstring StatusPayload(const ServiceStatus& status) {
     return std::wstring(L"{\"state\":\"") + StateName(status.state) +
            L"\",\"serviceRunning\":" +
            std::wstring(status.serviceRunning ? L"true" : L"false") +
            L",\"uiConnected\":" +
            std::wstring(status.uiConnected ? L"true" : L"false") +
-           L",\"uiAutostart\":" +
-           std::wstring(status.uiAutostart ? L"true" : L"false") +
            L",\"internetAvailable\":" +
            std::wstring(status.internetAvailable ? L"true" : L"false") +
            L",\"internetStatusKnown\":" +
@@ -137,7 +118,6 @@ std::wstring StatusPayload(const ServiceStatus& status) {
            L",\"publicIp\":\"" + JsonEscape(status.publicIp) + L"\"" +
            L",\"message\":\"" + JsonEscape(status.lastMessage) + L"\"}";
 }
-
 std::string ToUtf8(std::wstring_view value) {
     const int size = WideCharToMultiByte(CP_UTF8, 0, value.data(),
                                          static_cast<int>(value.size()),
@@ -151,7 +131,6 @@ std::string ToUtf8(std::wstring_view value) {
                         nullptr, nullptr);
     return result;
 }
-
 std::optional<LocalInstallInfo> LoadLocalInstallInfo(
     const std::filesystem::path& path, std::wstring& error) {
     error.clear();
@@ -178,7 +157,6 @@ std::optional<LocalInstallInfo> LoadLocalInstallInfo(
     }
     return local;
 }
-
 std::filesystem::path ProgramDataPath() {
     PWSTR rawPath = nullptr;
     const HRESULT result = SHGetKnownFolderPath(FOLDERID_ProgramData, 0, nullptr,
@@ -190,77 +168,27 @@ std::filesystem::path ProgramDataPath() {
     CoTaskMemFree(rawPath);
     return path;
 }
-
 class HttpTransport final : public ILoginTransport {
 public:
     explicit HttpTransport(Logger& logger) : client_(&logger) {}
-
     HttpLoginResult Login(const AppConfig& config,
                           const Credentials& credentials) override {
         return client_.Login(config, credentials);
     }
-
     InternetStatus CheckInternet(const AppConfig& config) override {
         return client_.CheckInternet(config);
     }
-
     void Cancel() noexcept { client_.Cancel(); }
-
 private:
     HttpPortalClient client_;
 };
-
-class BrowserRequester final : public IBrowserFallbackRequester {
-public:
-    bool HasInteractiveUser() const override {
-        return WTSGetActiveConsoleSessionId() != 0xFFFFFFFF;
-    }
-
-    bool RequestBrowserLogin(std::wstring_view) override {
-        if (connected_.load()) {
-            return true;
-        }
-        if (launchRequested_.exchange(true)) {
-            return true;
-        }
-
-        wchar_t modulePath[MAX_PATH]{};
-        const DWORD length = GetModuleFileNameW(nullptr, modulePath,
-                                                ARRAYSIZE(modulePath));
-        if (length == 0 || length >= ARRAYSIZE(modulePath)) {
-            launchRequested_.store(false);
-            return false;
-        }
-        const std::filesystem::path uiPath =
-            std::filesystem::path(modulePath).parent_path() /
-            L"CampusNetClient.exe";
-        std::wstring error;
-        if (!UserSessionLauncher::LaunchInActiveSession(uiPath, error)) {
-            launchRequested_.store(false);
-            return false;
-        }
-        return true;
-    }
-
-    void SetConnected(bool connected) {
-        connected_.store(connected);
-        if (!connected) {
-            launchRequested_.store(false);
-        }
-    }
-
-private:
-    std::atomic<bool> connected_{false};
-    std::atomic<bool> launchRequested_{false};
-};
-
 class ServiceRuntime {
 public:
     ServiceRuntime()
         : config_(LoadConfig(ConfigPath())),
           logger_(ConfigPath().parent_path() / L"logs" / L"service.log"),
           transport_(logger_),
-          login_(config_, credentials_, transport_, browser_),
+          login_(config_, credentials_, transport_),
           updaterDirectory_(ConfigPath().parent_path()),
           stagingDirectory_(ProgramDataPath() / L"CampusNetClient" /
                             L"UpdateStaging"),
@@ -275,14 +203,12 @@ public:
           stopEvent_(CreateEventW(nullptr, TRUE, FALSE, nullptr)) {
         logger_.Info(L"CampusNetService starting");
     }
-
     ~ServiceRuntime() {
         Stop();
         if (stopEvent_ != nullptr) {
             CloseHandle(stopEvent_);
         }
     }
-
     bool Start() {
         const AppConfig internetCheckConfig = config_;
         InitializeUpdaterBroker();
@@ -290,7 +216,6 @@ public:
             [this](const ProtocolMessage& request,
                    const ServiceIpcClientContext& client) {
             if (client.interactiveUser) {
-                browser_.SetConnected(true);
                 login_.SetUiConnected(true);
             }
             return Handle(request, client);
@@ -328,6 +253,7 @@ public:
         }
         try {
             internetStatusThread_ = std::thread([this, internetCheckConfig] {
+                DWORD launchedSession = 0xFFFFFFFF;
                 std::unique_lock lock(internetStatusMutex_);
                 while (!internetStatusStopping_) {
                     internetStatusCondition_.wait_for(
@@ -340,13 +266,20 @@ public:
                     }
                     internetStatusRefreshRequested_ = false;
                     lock.unlock();
-
+                    const DWORD session = UserSessionLauncher::ActiveConsoleSessionId();
+                    const auto startupConfig = LoadConfig(ConfigPath());
+                    if (session == 0xFFFFFFFF || !startupConfig.uiAutostart) launchedSession = 0xFFFFFFFF;
+                    if (startupConfig.uiAutostart && session != 0xFFFFFFFF && session != launchedSession) {
+                        std::wstring launchError;
+                        if (UserSessionLauncher::LaunchInActiveSession(updaterDirectory_ / L"CampusNetClient.exe", launchError))
+                            launchedSession = session;
+                        else logger_.Warn(L"UI autostart failed: " + launchError);
+                    }
                     const InternetStatus internet =
                         transport_.CheckInternet(internetCheckConfig);
                     login_.SetInternetStatus(internet.reachable,
                                              internet.publicIp,
                                              internet.statusCode);
-
                     lock.lock();
                 }
             });
@@ -358,7 +291,6 @@ public:
         }
         return true;
     }
-
     void Stop() {
         {
             std::scoped_lock lock(internetStatusMutex_);
@@ -382,19 +314,16 @@ public:
             internetStatusThread_.join();
         }
     }
-
     void Wait() const {
         if (stopEvent_ != nullptr) {
             WaitForSingleObject(stopEvent_, INFINITE);
         }
     }
-
     void RequestStop() const {
         if (stopEvent_ != nullptr) {
             SetEvent(stopEvent_);
         }
     }
-
 private:
     void InitializeUpdaterBroker() {
         if (!localInstallInfo_) {
@@ -447,7 +376,6 @@ private:
         updateAgentIpc_ = std::make_unique<UpdateAgentIpc>(
             updaterSupervisor_, *updateBroker_, stagingDirectory_);
     }
-
     std::filesystem::path UpdateInstallRoot() const {
         if (localInstallInfo_ &&
             localInstallInfo_->channel == UpdateChannel::Portable) {
@@ -455,7 +383,6 @@ private:
         }
         return updaterDirectory_;
     }
-
     ProtocolMessage Handle(const ProtocolMessage& request,
                            const ServiceIpcClientContext& client) {
         if (request.type == MessageType::UpdateAgentStatus) {
@@ -494,28 +421,8 @@ private:
             return Reply(request, saved ? L"{\"ok\":true}"
                                         : L"{\"ok\":false}");
         }
-        case MessageType::SetUiAutostart: {
-            bool enabled = false;
-            const bool parsed = ExtractBool(request.payload, "enabled", enabled);
-            if (parsed) {
-                config_.uiAutostart = enabled;
-                login_.SetConfig(config_);
-                SaveConfig(ConfigPath(), config_);
-            }
-            return Reply(request, parsed ? L"{\"ok\":true}"
-                                         : L"{\"ok\":false}");
-        }
         case MessageType::LoginNow: {
             QueueLoginRequest();
-            return Reply(request, StatusPayload(login_.Status()));
-        }
-        case MessageType::BrowserLoginResult: {
-            bool success = false;
-            const bool parsed = ExtractBool(request.payload, "success", success);
-            if (parsed) {
-                login_.OnBrowserLoginResult(
-                    success, ExtractString(request.payload, "message"));
-            }
             return Reply(request, StatusPayload(login_.Status()));
         }
         case MessageType::CheckInternet: {
@@ -545,6 +452,8 @@ private:
                 return Reply(request, L"{\"ok\":false}");
             auto updated = config_;
             updated.carrier = carrier;
+            bool autostart = updated.uiAutostart;
+            if (ExtractBool(request.payload, "uiAutostart", autostart)) updated.uiAutostart = autostart;
             if (!SaveConfig(ConfigPath(), updated)) return Reply(request, L"{\"ok\":false}");
             config_ = updated;
             login_.SetConfig(config_);
@@ -552,35 +461,19 @@ private:
         }
         case MessageType::GetLogs:
             return Reply(request, L"{\"ok\":true}");
-        case MessageType::BrowserLoginRequest: {
-            const auto credentials = credentials_.Read();
-            if (!credentials.has_value()) {
-                return Reply(request, L"{\"ok\":false}");
-            }
-            return Reply(
-                request,
-                std::wstring(L"{\"ok\":true,\"username\":\"") +
-                    JsonEscape(credentials->username) +
-                    L"\",\"portalUrl\":\"" + JsonEscape(LoginPortalUrl(config_)) +
-                    L"\",\"carrier\":\"" + config_.carrier + L"\",\"password\":\"" +
-                    JsonEscape(credentials->password) + L"\"}");
-        }
         }
         return Reply(request, L"{\"ok\":false}");
     }
-
     ProtocolMessage ErrorReply(const ProtocolMessage& request,
                                DWORD errorCode) const {
         return {kProtocolVersion, request.type, request.requestId,
                 "{\"errorCode\":" + std::to_string(errorCode) + "}"};
     }
-
     ProtocolMessage Reply(const ProtocolMessage& request,
                           std::wstring_view payload) const {
         return {kProtocolVersion, request.type, request.requestId,
                 ToUtf8(payload)};
     }
-
     void QueueLoginRequest() {
         {
             std::scoped_lock lock(loginWorkerMutex_);
@@ -591,7 +484,6 @@ private:
         }
         loginWorkerCondition_.notify_one();
     }
-
     void RequestInternetStatusRefresh() {
         {
             std::scoped_lock lock(internetStatusMutex_);
@@ -602,12 +494,10 @@ private:
         }
         internetStatusCondition_.notify_one();
     }
-
     AppConfig config_;
     Logger logger_;
     WindowsCredentialStore credentials_;
     HttpTransport transport_;
-    BrowserRequester browser_;
     LoginService login_;
     ServiceIpcServer ipc_;
     NetworkMonitor network_;
@@ -632,7 +522,6 @@ private:
     std::thread internetStatusThread_;
     HANDLE stopEvent_;
 };
-
 void UpdateServiceStatus(DWORD state, DWORD win32ExitCode = NO_ERROR,
                          DWORD waitHint = 0) {
     g_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -647,9 +536,7 @@ void UpdateServiceStatus(DWORD state, DWORD win32ExitCode = NO_ERROR,
         SetServiceStatus(g_statusHandle, &g_status);
     }
 }
-
 ServiceRuntime* g_runtime = nullptr;
-
 VOID WINAPI ServiceHandler(DWORD control) {
     if (control == SERVICE_CONTROL_STOP || control == SERVICE_CONTROL_SHUTDOWN) {
         if (g_runtime != nullptr) {
@@ -658,7 +545,6 @@ VOID WINAPI ServiceHandler(DWORD control) {
         UpdateServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 3000);
     }
 }
-
 void WINAPI ServiceMain(DWORD, LPWSTR*) {
     g_statusHandle = RegisterServiceCtrlHandlerW(L"CampusNetService",
                                                   ServiceHandler);
@@ -666,7 +552,6 @@ void WINAPI ServiceMain(DWORD, LPWSTR*) {
         return;
     }
     UpdateServiceStatus(SERVICE_START_PENDING, NO_ERROR, 5000);
-
     ServiceRuntime runtime;
     g_runtime = &runtime;
     if (!runtime.Start()) {
@@ -680,9 +565,7 @@ void WINAPI ServiceMain(DWORD, LPWSTR*) {
     g_runtime = nullptr;
     UpdateServiceStatus(SERVICE_STOPPED);
 }
-
 } // namespace
-
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     if (commandLine != nullptr &&
         wcscmp(commandLine, L"--configure-service") == 0) {

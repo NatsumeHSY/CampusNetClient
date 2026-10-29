@@ -1,4 +1,4 @@
-#include "LoginService.h"
+﻿#include "LoginService.h"
 
 #include <atomic>
 #include <cassert>
@@ -64,18 +64,6 @@ public:
     bool loginEntered{false};
 };
 
-class FakeBrowserRequester final : public IBrowserFallbackRequester {
-public:
-    bool HasInteractiveUser() const override { return interactive; }
-    bool RequestBrowserLogin(std::wstring_view) override {
-        requests++;
-        return requestAccepted;
-    }
-
-    bool interactive{true};
-    bool requestAccepted{true};
-    int requests{0};
-};
 
 AppConfig TestConfig() {
     AppConfig config = LoadDefaultConfig();
@@ -95,8 +83,7 @@ int RunLoginStateTests() {
     {
         FakeCredentials credentials;
         FakeTransport transport;
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         assert(!service.Status().internetStatusKnown);
 
         service.SetInternetStatus(true, L"198.51.100.42", 200);
@@ -119,8 +106,7 @@ int RunLoginStateTests() {
         credentials.credentials = Credentials{L"student", L"secret"};
         FakeTransport transport;
         transport.internetResults = {Offline()};
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         const auto result = service.RunOnce();
         assert(result.result == LoginRunResult::Succeeded);
         assert(result.status.state == LoginState::Succeeded);
@@ -133,8 +119,7 @@ int RunLoginStateTests() {
         credentials.credentials = Credentials{L"student", L"secret"};
         FakeTransport transport;
         transport.internetResults = {Online()};
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         const auto result = service.RunOnce();
         assert(result.result == LoginRunResult::Succeeded);
         assert(transport.loginCalls == 1);
@@ -147,11 +132,9 @@ int RunLoginStateTests() {
         FakeTransport transport;
         transport.loginResult = {HttpLoginOutcome::Cancelled, 0, {},
                                  L"cancelled"};
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         const auto result = service.RunOnce();
         assert(result.result == LoginRunResult::Failed);
-        assert(browser.requests == 0);
     }
 
     {
@@ -161,15 +144,12 @@ int RunLoginStateTests() {
         transport.internetResults = {Offline()};
         transport.loginResult = {HttpLoginOutcome::LoginRejected, 200, {},
                                  L"rejected"};
-        FakeBrowserRequester browser;
-        browser.interactive = false;
         auto config = TestConfig();
-        config.uiAutostart = false;
-        LoginService service(config, credentials, transport, browser);
+        LoginService service(config, credentials, transport);
         const auto result = service.RunOnce();
-        assert(result.result == LoginRunResult::BrowserFallbackDisabled);
-        assert(result.status.state == LoginState::BrowserFallbackDisabled);
-        assert(browser.requests == 0);
+        assert(result.result == LoginRunResult::Failed);
+        assert(result.status.state == LoginState::Failed);
+        assert(result.status.lastMessage == L"rejected");
     }
 
     {
@@ -179,19 +159,16 @@ int RunLoginStateTests() {
         transport.internetResults = {Offline()};
         transport.loginResult = {HttpLoginOutcome::TransportError, 0, {},
                                  L"transport"};
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         const auto result = service.RunOnce();
-        assert(result.result == LoginRunResult::BrowserFallbackRequested);
-        assert(result.status.state == LoginState::RequestingBrowserFallback);
-        assert(browser.requests == 1);
+        assert(result.result == LoginRunResult::Failed);
+        assert(result.status.state == LoginState::Failed);
     }
 
     {
         FakeCredentials credentials;
         FakeTransport transport;
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
         const auto result = service.RunOnce();
         assert(result.result == LoginRunResult::CredentialsMissing);
         assert(result.status.state == LoginState::Failed);
@@ -203,8 +180,7 @@ int RunLoginStateTests() {
         FakeTransport transport;
         transport.internetResults = {Offline(), Online()};
         transport.blockLogin = true;
-        FakeBrowserRequester browser;
-        LoginService service(TestConfig(), credentials, transport, browser);
+        LoginService service(TestConfig(), credentials, transport);
 
         LoginRunSummary first;
         std::thread worker([&] { first = service.RunOnce(); });
@@ -224,14 +200,11 @@ int RunLoginStateTests() {
         transport.internetResults = {Offline()};
         transport.loginResult = {HttpLoginOutcome::TransportError, 0, {},
                                  L"transport"};
-        FakeBrowserRequester browser;
-        browser.interactive = false;
         auto config = TestConfig();
-        config.uiAutostart = false;
-        LoginService service(config, credentials, transport, browser);
+        LoginService service(config, credentials, transport);
         const auto first = service.RunOnce();
         const auto second = service.RunOnce();
-        assert(first.result == LoginRunResult::BrowserFallbackDisabled);
+        assert(first.result == LoginRunResult::Failed);
         assert(second.result == LoginRunResult::BackoffSuppressed);
         assert(transport.loginCalls == 1);
     }

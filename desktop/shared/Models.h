@@ -7,19 +7,15 @@ enum class LoginState {
     WaitingForNetwork,
     CheckingInternet,
     HttpLogin,
-    RequestingBrowserFallback,
-    BrowserLogin,
     VerifyingInternet,
     Succeeded,
     Failed,
-    BrowserFallbackDisabled,
 };
 
 struct ServiceStatus {
     LoginState state{LoginState::Idle};
     bool serviceRunning{false};
     bool uiConnected{false};
-    bool uiAutostart{true};
     bool internetStatusKnown{false};
     bool internetAvailable{false};
     unsigned internetStatusCode{0};

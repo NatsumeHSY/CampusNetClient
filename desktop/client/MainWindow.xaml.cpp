@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "MainWindow.xaml.h"
 #include "SingleInstanceActivation.h"
 #if __has_include("MainWindow.g.cpp")
@@ -7,10 +7,8 @@
 #if __has_include("MainWindow.xaml.g.hpp")
 #include "MainWindow.xaml.g.hpp"
 #endif
-
 #include "Protocol.h"
 #include "resource.h"
-
 #include <microsoft.ui.xaml.window.h>
 #include <winrt/Microsoft.UI.h>
 #ifdef GetCurrentTime
@@ -21,7 +19,6 @@
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
-
 #include <chrono>
 #include <cwchar>
 #include <cwctype>
@@ -33,17 +30,12 @@
 #include <string_view>
 #include <vector>
 #include <ws2tcpip.h>
-
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
-
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
-
 namespace winrt::CampusNetClient::implementation {
-
 namespace {
-
 std::string ToUtf8(std::wstring_view value) {
     const int size = WideCharToMultiByte(CP_UTF8, 0, value.data(),
                                          static_cast<int>(value.size()),
@@ -57,7 +49,6 @@ std::string ToUtf8(std::wstring_view value) {
                         nullptr, nullptr);
     return result;
 }
-
 std::wstring FromUtf8(std::string_view value) {
     const int size = MultiByteToWideChar(CP_UTF8, 0, value.data(),
                                          static_cast<int>(value.size()),
@@ -70,7 +61,6 @@ std::wstring FromUtf8(std::string_view value) {
                         static_cast<int>(value.size()), result.data(), size);
     return result;
 }
-
 std::string EscapeJson(std::string_view value) {
     std::string escaped;
     escaped.reserve(value.size() + 8);
@@ -95,7 +85,6 @@ std::string EscapeJson(std::string_view value) {
     }
     return escaped;
 }
-
 std::optional<bool> ExtractJsonBool(std::string_view payload,
                                     std::string_view key) {
     const std::string marker = "\"" + std::string(key) + "\":";
@@ -112,12 +101,10 @@ std::optional<bool> ExtractJsonBool(std::string_view payload,
     }
     return std::nullopt;
 }
-
 bool HasState(std::string_view payload, std::string_view state) {
     return payload.find("\"state\":\"" + std::string(state) + "\"") !=
            std::string_view::npos;
 }
-
 std::wstring StatusAssetUri(std::wstring_view assetName) {
     wchar_t modulePath[MAX_PATH]{};
     const DWORD length = GetModuleFileNameW(
@@ -125,24 +112,20 @@ std::wstring StatusAssetUri(std::wstring_view assetName) {
     if (length == 0 || length >= _countof(modulePath)) {
         return {};
     }
-
     const auto assetPath =
         std::filesystem::path(std::wstring(modulePath, length)).parent_path() /
         L"assets" / L"status" / std::wstring(assetName);
     return std::wstring(L"file:///") + assetPath.generic_wstring();
 }
-
 struct LocalNetworkInfo {
     std::wstring ipv4{L"未检测到"};
     std::wstring mac{L"未检测到"};
     std::wstring computerName{L"未检测到"};
 };
-
 std::wstring FormatMacAddress(const BYTE* address, ULONG length) {
     if (address == nullptr || length == 0) {
         return L"未检测到";
     }
-
     std::wstring result;
     result.reserve(length * 3);
     for (ULONG index = 0; index < length; ++index) {
@@ -155,17 +138,14 @@ std::wstring FormatMacAddress(const BYTE* address, ULONG length) {
     }
     return result;
 }
-
 bool ContainsInsensitive(const wchar_t* value, std::wstring_view marker) {
     if (value == nullptr || marker.empty()) {
         return false;
     }
-
     const std::wstring_view text(value);
     if (text.size() < marker.size()) {
         return false;
     }
-
     for (std::size_t offset = 0;
          offset + marker.size() <= text.size(); ++offset) {
         bool matches = true;
@@ -182,7 +162,6 @@ bool ContainsInsensitive(const wchar_t* value, std::wstring_view marker) {
     }
     return false;
 }
-
 bool IsVirtualAdapter(PIP_ADAPTER_ADDRESSES adapter) {
     return adapter == nullptr ||
            ContainsInsensitive(adapter->FriendlyName, L"WSL") ||
@@ -204,7 +183,6 @@ bool IsVirtualAdapter(PIP_ADAPTER_ADDRESSES adapter) {
            ContainsInsensitive(adapter->Description, L"Tunnel") ||
            ContainsInsensitive(adapter->Description, L"Docker");
 }
-
 bool HasIpv4Gateway(PIP_ADAPTER_ADDRESSES adapter) {
     for (auto* gateway = adapter->FirstGatewayAddress; gateway != nullptr;
          gateway = gateway->Next) {
@@ -215,13 +193,11 @@ bool HasIpv4Gateway(PIP_ADAPTER_ADDRESSES adapter) {
     }
     return false;
 }
-
 std::optional<DWORD> QueryBestInterfaceIndex() {
     IN_ADDR destination{};
     if (InetPtonW(AF_INET, L"8.8.8.8", &destination) != 1) {
         return std::nullopt;
     }
-
     DWORD bestInterface = 0;
     if (GetBestInterface(destination.S_un.S_addr, &bestInterface) !=
         NO_ERROR) {
@@ -229,7 +205,6 @@ std::optional<DWORD> QueryBestInterfaceIndex() {
     }
     return bestInterface;
 }
-
 bool TryGetIpv4(PIP_ADAPTER_ADDRESSES adapter, std::wstring& ipv4) {
     for (auto* unicast = adapter->FirstUnicastAddress; unicast != nullptr;
          unicast = unicast->Next) {
@@ -237,7 +212,6 @@ bool TryGetIpv4(PIP_ADAPTER_ADDRESSES adapter, std::wstring& ipv4) {
             unicast->Address.lpSockaddr->sa_family != AF_INET) {
             continue;
         }
-
         const auto* address = reinterpret_cast<const sockaddr_in*>(
             unicast->Address.lpSockaddr);
         const ULONG hostAddress = ntohl(address->sin_addr.S_un.S_addr);
@@ -246,7 +220,6 @@ bool TryGetIpv4(PIP_ADAPTER_ADDRESSES adapter, std::wstring& ipv4) {
             (hostAddress & 0xFFFF0000UL) == 0xA9FE0000UL) {
             continue;
         }
-
         wchar_t addressText[INET_ADDRSTRLEN]{};
         if (InetNtopW(AF_INET, const_cast<IN_ADDR*>(&address->sin_addr),
                       addressText, ARRAYSIZE(addressText)) != nullptr) {
@@ -256,16 +229,13 @@ bool TryGetIpv4(PIP_ADAPTER_ADDRESSES adapter, std::wstring& ipv4) {
     }
     return false;
 }
-
 LocalNetworkInfo QueryLocalNetworkInfo() {
     LocalNetworkInfo info;
-
     wchar_t computerName[MAX_COMPUTERNAME_LENGTH + 1]{};
     DWORD computerNameLength = ARRAYSIZE(computerName);
     if (GetComputerNameW(computerName, &computerNameLength)) {
         info.computerName.assign(computerName, computerNameLength);
     }
-
     ULONG bufferLength = 15 * 1024;
     std::vector<BYTE> buffer(bufferLength);
     auto* adapters = reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.data());
@@ -284,7 +254,6 @@ LocalNetworkInfo QueryLocalNetworkInfo() {
     if (result != NO_ERROR) {
         return info;
     }
-
     const auto bestInterface = QueryBestInterfaceIndex();
     PIP_ADAPTER_ADDRESSES gatewayFallback = nullptr;
     std::wstring gatewayFallbackIpv4;
@@ -300,12 +269,10 @@ LocalNetworkInfo QueryLocalNetworkInfo() {
             IsVirtualAdapter(adapter)) {
             continue;
         }
-
         std::wstring ipv4;
         if (!TryGetIpv4(adapter, ipv4)) {
             continue;
         }
-
         const bool hasGateway = HasIpv4Gateway(adapter);
         if (hasGateway && bestInterface.has_value() &&
             adapter->IfIndex == *bestInterface) {
@@ -314,7 +281,6 @@ LocalNetworkInfo QueryLocalNetworkInfo() {
                                         adapter->PhysicalAddressLength);
             return info;
         }
-
         if (hasGateway &&
             (gatewayFallback == nullptr ||
              adapter->Ipv4Metric < gatewayFallbackMetric)) {
@@ -326,7 +292,6 @@ LocalNetworkInfo QueryLocalNetworkInfo() {
             physicalFallbackIpv4 = std::move(ipv4);
         }
     }
-
     auto* selected = gatewayFallback != nullptr ? gatewayFallback :
                                                    physicalFallback;
     if (selected != nullptr) {
@@ -338,7 +303,6 @@ LocalNetworkInfo QueryLocalNetworkInfo() {
     }
     return info;
 }
-
 std::optional<std::string> ExtractJsonString(std::string_view payload,
                                              std::string_view key) {
     const std::string marker = "\"" + std::string(key) + "\":\"";
@@ -379,7 +343,6 @@ std::optional<std::string> ExtractJsonString(std::string_view payload,
     }
     return std::nullopt;
 }
-
 const wchar_t* ServiceStateName(ManagedServiceState state) {
     switch (state) {
     case ManagedServiceState::Missing:
@@ -397,7 +360,6 @@ const wchar_t* ServiceStateName(ManagedServiceState state) {
     }
     return L"未知";
 }
-
 const wchar_t* ServiceInstallationName(ManagedServiceState state) {
     switch (state) {
     case ManagedServiceState::Missing:
@@ -412,19 +374,16 @@ const wchar_t* ServiceInstallationName(ManagedServiceState state) {
     }
     return L"状态未知";
 }
-
 HICON LoadCampusNetIcon(int width, int height) {
     auto* module = GetModuleHandleW(nullptr);
     return reinterpret_cast<HICON>(LoadImageW(
         module, MAKEINTRESOURCEW(IDI_CAMPUSNETCLIENT), IMAGE_ICON, width,
         height, LR_DEFAULTCOLOR | LR_SHARED));
 }
-
 void ApplyWindowIcons(HWND handle) {
     if (handle == nullptr) {
         return;
     }
-
     const auto smallIcon = LoadCampusNetIcon(
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
     const auto largeIcon = LoadCampusNetIcon(
@@ -438,17 +397,13 @@ void ApplyWindowIcons(HWND handle) {
                      reinterpret_cast<LPARAM>(largeIcon));
     }
 }
-
 } // namespace
-
 MainWindow::MainWindow()
-    : viewModel_(LoadDefaultConfig()),
-      webView_(std::make_unique<WebView2LoginHost>()) {
+    : viewModel_(LoadDefaultConfig()) {
     InitializeComponent();
     SetStatusIllustration(L"service-connecting.png");
     StartStatusIndicatorAnimation();
     RefreshLocalNetworkInfo();
-
     AppWindow().Title(L"广航海校园网自动登录");
     AppWindow().Resize({1000, 720});
     closingToken_ = AppWindow().Closing([this](auto const&, auto const& args) {
@@ -457,7 +412,6 @@ MainWindow::MainWindow()
             HideToTray();
         }
     });
-
     auto windowNative = this->try_as<::IWindowNative>();
     HWND handle = nullptr;
     if (windowNative != nullptr && SUCCEEDED(windowNative->get_WindowHandle(&handle))) {
@@ -467,7 +421,6 @@ MainWindow::MainWindow()
         });
         tray_->Initialize();
     }
-    UiAutostartToggle().IsOn(viewModel_.UiAutostart());
     ServicePathText().Text(winrt::hstring(
         L"服务程序：" + ResolveServiceBinaryPath().wstring()));
     std::wstring serviceQueryError;
@@ -481,7 +434,6 @@ MainWindow::MainWindow()
         }
     }
     RefreshServiceStatus();
-
     dispatcher_ =
         Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
     if (dispatcher_ != nullptr) {
@@ -564,7 +516,6 @@ MainWindow::MainWindow()
         });
     }
 }
-
 MainWindow::~MainWindow() {
     lifetimeGuard_->store(false);
     StopPolling();
@@ -572,11 +523,9 @@ MainWindow::~MainWindow() {
         loginRequestThread_.join();
     }
 }
-
 void MainWindow::LoginButton_Click(IInspectable const&, RoutedEventArgs const&) {
     StartLoginAttempt(L"ui-login");
 }
-
 void MainWindow::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&) {
     RefreshStatus();
     RefreshLocalNetworkInfo();
@@ -584,19 +533,16 @@ void MainWindow::RefreshButton_Click(IInspectable const&, RoutedEventArgs const&
     RequestNetworkStatusRefresh();
     RequestUpdateCheck();
 }
-
 void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
     const std::string carrier = CarrierBox().SelectedIndex() == 1 ? "mobile" : "telecom";
+    const std::string startup = UiAutostartToggle().IsOn() ? "true" : "false";
     std::wstring settingsError;
     const auto saved = ipc_.Call({kProtocolVersion, MessageType::UpdateConfig,
-        L"ui-carrier", "{\"carrier\":\"" + carrier + "\"}"}, 1500, settingsError);
+        L"ui-carrier", "{\"carrier\":\"" + carrier + "\",\"uiAutostart\":" + startup + "}"}, 1500, settingsError);
     if (!saved || !ExtractJsonBool(saved->payload, "ok").value_or(false)) {
         SetServiceFeedback(L"套餐保存失败，请确认服务已启动。");
         return;
     }
-    const bool uiAutostart = UiAutostartToggle().IsOn();
-    viewModel_.SetUiAutostart(uiAutostart);
-    const std::string enabled = uiAutostart ? "true" : "false";
     std::wstring error;
     const std::string username = ToUtf8(UsernameBox().Text().c_str());
     const std::string password = ToUtf8(PasswordBox().Password().c_str());
@@ -608,29 +554,22 @@ void MainWindow::SaveButton_Click(IInspectable const&, RoutedEventArgs const&) {
                        "\"}"},
                   1500, error);
     }
-    ipc_.Call({kProtocolVersion, MessageType::SetUiAutostart, L"ui-settings",
-               "{\"enabled\":" + enabled + "}"},
-              1500, error);
 }
-
 void MainWindow::ShowFromTray() {
     AppWindow().Show(true);
     OnWindowShown();
     RefreshLocalNetworkInfo();
 }
-
 void MainWindow::HideToTray() {
     AppWindow().Hide();
     updateCheckPresentation_.OnWindowHidden();
 }
-
 void MainWindow::OnWindowShown() {
     const auto action = updateCheckPresentation_.OnWindowShown();
     if (action.requestCheck) {
         RequestUpdateCheck();
     }
 }
-
 void MainWindow::RequestUpdateCheck() {
     if (updateResultShowing_) return;
     bool expected = false;
@@ -650,12 +589,10 @@ void MainWindow::RequestUpdateCheck() {
         updateCheckRequested_.store(true);
     }
 }
-
 void MainWindow::CompleteUpdateCheck(const std::string& phase) {
     updateCheckPresentation_.OnCheckCompleted();
     if (!updateCheckTimedOut_) ShowUpdateCheckResult(phase);
 }
-
 void MainWindow::ShowUpdateCheckResult(std::string_view phase) {
     const auto result = ClassifyUpdateCheckResult(phase);
     UpdateCheckProgressRing().IsActive(false);
@@ -693,7 +630,6 @@ void MainWindow::ShowUpdateCheckResult(std::string_view phase) {
         updateOverlayTimer_.Start();
     }
 }
-
 void MainWindow::EndUpdateOverlay() {
     if (updateOverlayTimer_ != nullptr) {
         updateOverlayTimer_.Stop();
@@ -702,15 +638,18 @@ void MainWindow::EndUpdateOverlay() {
     updateResultShowing_ = false;
     MainContentScrollViewer().IsEnabled(true);
 }
-
 void MainWindow::RefreshStatus() {
-    if (!carrierLoaded_) {
+    std::wstring serviceError;
+    const auto serviceState = serviceManager_.Query(serviceError);
+    if (serviceState != ManagedServiceState::Running) carrierLoaded_ = false;
+    if (!carrierLoaded_ && serviceState == ManagedServiceState::Running) {
         std::wstring configError;
         const auto config = ipc_.Call({kProtocolVersion, MessageType::GetConfig,
             L"ui-config", "{}"}, 1500, configError);
-        if (config) {
-            const auto carrier = ExtractJsonString(config->payload, "carrier");
-            CarrierBox().SelectedIndex(carrier && *carrier == "mobile" ? 1 : 0);
+        const auto carrier = config ? ExtractJsonString(config->payload, "carrier") : std::nullopt;
+        if (config && carrier && (*carrier == "mobile" || *carrier == "telecom")) {
+            CarrierBox().SelectedIndex(*carrier == "mobile" ? 1 : 0);
+            UiAutostartToggle().IsOn(ExtractJsonBool(config->payload, "uiAutostart").value_or(true));
             carrierLoaded_ = true;
         }
     }
@@ -719,7 +658,8 @@ void MainWindow::RefreshStatus() {
     const auto response = ipc_.Call(
         {kProtocolVersion, MessageType::GetStatus, L"ui-status", "{}"}, 1500,
         error);
-    if (!response.has_value()) {
+    if (!response.has_value() || serviceState != ManagedServiceState::Running ||
+        !ExtractJsonBool(response->payload, "serviceRunning").value_or(false)) {
         StatusText().Text(L"\u672A\u8FDE\u63A5\u5230\u670D\u52A1");
         PublicIpText().Text(L"\u5916\u7F51 IP\uFF1A\u670D\u52A1\u672A\u8FDE\u63A5");
         internetReachable_.reset();
@@ -734,8 +674,6 @@ void MainWindow::RefreshStatus() {
     }
     StatusText().Text(L"\u5DF2\u8FDE\u63A5\u5230\u670D\u52A1");
     SetStatusIndicator(true);
-    SetStatusIllustration(L"service-connected.png");
-
     const bool internetAvailable =
         ExtractJsonBool(response->payload, "internetAvailable").value_or(false);
     const bool internetStatusKnown =
@@ -756,8 +694,7 @@ void MainWindow::RefreshStatus() {
     if (loginAttemptPending_ && !loginAttemptAwaitingRequest_) {
         if (loginSucceeded_) {
             CompleteLoginAttempt(true, {});
-        } else if (HasState(response->payload, "Failed") ||
-                   HasState(response->payload, "BrowserFallbackDisabled")) {
+        } else if (HasState(response->payload, "Failed")) {
             const auto message = ExtractJsonString(response->payload, "message");
             CompleteLoginAttempt(
                 false, message.has_value() ? FromUtf8(*message)
@@ -770,23 +707,16 @@ void MainWindow::RefreshStatus() {
     } else if (HasState(response->payload, "WaitingForNetwork") ||
                HasState(response->payload, "CheckingInternet") ||
                HasState(response->payload, "HttpLogin") ||
-               HasState(response->payload, "RequestingBrowserFallback") ||
-               HasState(response->payload, "BrowserLogin") ||
                HasState(response->payload, "VerifyingInternet")) {
         SetStatusIllustration(L"network-authenticating.png");
-    } else if (HasState(response->payload, "Failed") ||
-               HasState(response->payload, "BrowserFallbackDisabled")) {
+    } else if (HasState(response->payload, "Failed")) {
         SetStatusIllustration(L"network-authentication-failed.png");
     } else if (HasState(response->payload, "Idle") || !internetAvailable) {
         SetStatusIllustration(L"network-unauthenticated.png");
+    } else {
+        SetStatusIllustration(L"service-connected.png");
     }
-    if (const auto enabled = ExtractJsonBool(response->payload, "uiAutostart")) {
-        viewModel_.SetUiAutostart(*enabled);
-        UiAutostartToggle().IsOn(*enabled);
-    }
-    MaybeStartBrowserFallback(response->payload);
 }
-
 void MainWindow::RefreshLocalNetworkInfo() {
     const auto info = QueryLocalNetworkInfo();
     LocalIpText().Text(winrt::hstring(
@@ -796,14 +726,12 @@ void MainWindow::RefreshLocalNetworkInfo() {
     ComputerNameText().Text(winrt::hstring(
         L"\u8BA1\u7B97\u673A\u540D\uFF1A" + info.computerName));
 }
-
 void MainWindow::RequestNetworkStatusRefresh() {
     std::wstring error;
     ipc_.Call({kProtocolVersion, MessageType::CheckInternet,
                L"ui-network-refresh", "{\"refresh\":true}"},
               1500, error);
 }
-
 void MainWindow::UpdateLoginButton() {
     LoginButton().IsEnabled(viewModel_.CanRequestLogin(
         internetReachable_, loginSucceeded_, loginAttemptPending_));
@@ -811,22 +739,18 @@ void MainWindow::UpdateLoginButton() {
     LoginProgressRing().Visibility(loginAttemptPending_ ? Visibility::Visible
                                                        : Visibility::Collapsed);
 }
-
 void MainWindow::StartLoginAttempt(std::wstring requestId) {
     if (!viewModel_.CanRequestLogin(internetReachable_, loginSucceeded_,
                                     loginAttemptPending_)) {
         return;
     }
-
     loginAttemptPending_ = true;
     loginAttemptAwaitingRequest_ = true;
     LoginFailureInfoBar().IsOpen(false);
     UpdateLoginButton();
-
     if (loginRequestThread_.joinable()) {
         loginRequestThread_.join();
     }
-
     try {
         const auto lifetimeGuard = lifetimeGuard_;
         loginRequestThread_ = std::thread(
@@ -857,7 +781,6 @@ void MainWindow::StartLoginAttempt(std::wstring requestId) {
         CompleteLoginAttempt(false, L"无法启动登录请求。");
     }
 }
-
 void MainWindow::CompleteLoginAttempt(bool succeeded, std::wstring message) {
     loginAttemptPending_ = false;
     loginAttemptAwaitingRequest_ = false;
@@ -873,7 +796,6 @@ void MainWindow::CompleteLoginAttempt(bool succeeded, std::wstring message) {
     }
     UpdateLoginButton();
 }
-
 void MainWindow::SetStatusIndicator(bool connected) {
     const auto color = connected
                            ? Microsoft::UI::ColorHelper::FromArgb(255, 16, 124, 16)
@@ -881,17 +803,14 @@ void MainWindow::SetStatusIndicator(bool connected) {
     StatusIndicator().Fill(
         Microsoft::UI::Xaml::Media::SolidColorBrush(color));
 }
-
 void MainWindow::SetStatusIllustration(std::wstring_view assetName) {
     if (assetName == statusIllustrationAsset_) {
         return;
     }
-
     const auto uri = StatusAssetUri(assetName);
     if (uri.empty()) {
         return;
     }
-
     try {
         auto bitmap = Microsoft::UI::Xaml::Media::Imaging::BitmapImage();
         bitmap.UriSource(Windows::Foundation::Uri(winrt::hstring(uri)));
@@ -902,7 +821,6 @@ void MainWindow::SetStatusIllustration(std::wstring_view assetName) {
         // from showing the service status text and controls.
     }
 }
-
 void MainWindow::StartStatusIndicatorAnimation() {
     const auto resource =
         RootGrid().Resources().Lookup(box_value(L"StatusIndicatorBreathing"));
@@ -910,64 +828,6 @@ void MainWindow::StartStatusIndicatorAnimation() {
         resource.as<Microsoft::UI::Xaml::Media::Animation::Storyboard>().Begin();
     }
 }
-
-void MainWindow::MaybeStartBrowserFallback(std::string_view statusPayload) {
-    if (browserFlowStarted_ || !viewModel_.WebViewFallbackEnabled() ||
-        (!HasState(statusPayload, "RequestingBrowserFallback") &&
-         !HasState(statusPayload, "BrowserLogin"))) {
-        return;
-    }
-
-    std::wstring error;
-    const auto response = ipc_.Call(
-        {kProtocolVersion, MessageType::BrowserLoginRequest,
-         L"ui-browser-request", "{}"},
-        1500, error);
-    if (!response.has_value()) {
-        return;
-    }
-    const auto username = ExtractJsonString(response->payload, "username");
-    const auto password = ExtractJsonString(response->payload, "password");
-    if (!username.has_value() || !password.has_value()) {
-        return;
-    }
-
-    HWND handle = nullptr;
-    auto windowNative = this->try_as<::IWindowNative>();
-    if (windowNative == nullptr ||
-        FAILED(windowNative->get_WindowHandle(&handle)) || handle == nullptr) {
-        return;
-    }
-
-    BrowserFallbackRequest request{
-        L"ui-browser-request", FromUtf8(ExtractJsonString(response->payload, "portalUrl").value_or("http://10.10.12.13/")),
-        FromUtf8(*username), FromUtf8(*password), viewModel_.UiAutostart(),
-        std::chrono::seconds(30)};
-    request.mobile = ExtractJsonString(response->payload, "carrier").value_or("telecom") == "mobile";
-    browserFlowStarted_ = true;
-    if (!webView_->Start(
-            handle, request,
-            [this](const WebViewLoginResult& result) {
-                SendBrowserLoginResult(result);
-                browserFlowStarted_ = false;
-            },
-            error)) {
-        browserFlowStarted_ = false;
-    }
-}
-
-void MainWindow::SendBrowserLoginResult(const WebViewLoginResult& result) {
-    const std::string message = ToUtf8(result.message);
-    const std::string payload =
-        std::string("{\"success\":") +
-        (result.success ? "true" : "false") +
-        ",\"message\":\"" + EscapeJson(message) + "\"}";
-    std::wstring error;
-    ipc_.Call({kProtocolVersion, MessageType::BrowserLoginResult,
-               L"ui-browser-result", payload},
-              1500, error);
-}
-
 void MainWindow::HandleTrayCommand(TrayCommand command) {
     switch (command) {
     case TrayCommand::Open:
@@ -985,7 +845,6 @@ void MainWindow::HandleTrayCommand(TrayCommand command) {
         break;
     }
 }
-
 void MainWindow::InstallServiceButton_Click(
     IInspectable const&, RoutedEventArgs const&) {
     if (!serviceCommandGate_.TryAcquire()) {
@@ -1008,7 +867,6 @@ void MainWindow::InstallServiceButton_Click(
     SetServiceFeedback(success ? L"服务安装成功。" : error);
     RefreshServiceStatus();
 }
-
 void MainWindow::StartServiceButton_Click(
     IInspectable const&, RoutedEventArgs const&) {
     if (!serviceCommandGate_.TryAcquire()) {
@@ -1020,7 +878,6 @@ void MainWindow::StartServiceButton_Click(
     SetServiceFeedback(success ? L"服务启动成功。" : error);
     RefreshServiceStatus();
 }
-
 void MainWindow::StopServiceButton_Click(
     IInspectable const&, RoutedEventArgs const&) {
     if (!serviceCommandGate_.TryAcquire()) {
@@ -1032,7 +889,6 @@ void MainWindow::StopServiceButton_Click(
     SetServiceFeedback(success ? L"服务停止成功。" : error);
     RefreshServiceStatus();
 }
-
 void MainWindow::UninstallServiceButton_Click(
     IInspectable const&, RoutedEventArgs const&) {
     if (!serviceCommandGate_.TryAcquire()) {
@@ -1054,7 +910,6 @@ void MainWindow::UninstallServiceButton_Click(
     SetServiceFeedback(std::move(feedback));
     RefreshServiceStatus();
 }
-
 void MainWindow::RefreshServiceStatus() {
     std::wstring error;
     const auto state = serviceManager_.Query(error);
@@ -1065,11 +920,9 @@ void MainWindow::RefreshServiceStatus() {
         SetServiceFeedback(error);
     }
 }
-
 void MainWindow::SetServiceFeedback(std::wstring message) {
     ServiceFeedbackText().Text(winrt::hstring(std::move(message)));
 }
-
 std::filesystem::path MainWindow::ResolveServiceBinaryPath() const {
     wchar_t modulePath[MAX_PATH]{};
     const DWORD length = GetModuleFileNameW(
@@ -1080,22 +933,16 @@ std::filesystem::path MainWindow::ResolveServiceBinaryPath() const {
     return std::filesystem::path(modulePath).parent_path() /
            L"CampusNetService.exe";
 }
-
 void MainWindow::ExitApplication() {
     allowWindowClose_ = true;
     StopPolling();
-    if (webView_ != nullptr) {
-        webView_->Cancel();
-    }
     tray_.reset();
     Close();
 }
-
 void MainWindow::StopPolling() {
     pollStop_.store(true);
     if (pollThread_.joinable()) {
         pollThread_.join();
     }
 }
-
 } // namespace winrt::CampusNetClient::implementation

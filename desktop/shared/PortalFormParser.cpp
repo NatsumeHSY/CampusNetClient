@@ -1,4 +1,4 @@
-#include "PortalFormParser.h"
+﻿#include "PortalFormParser.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -325,37 +325,4 @@ std::wstring BuildLoginBody(const PortalForm& form,
            L"&queryString=" + DoubleEncode(queryString) +
            L"&operatorPwd=&operatorUserId=&validcode=&passwordEncrypt=" +
            DoubleEncode(L"false");
-}
-
-std::wstring MobileLoginAction(const PortalForm& form, std::wstring_view pageUrl) {
-    const auto parameter = FindFieldValue(form, L"urlParameter");
-    return ResolveUrl(pageUrl, parameter.empty() ?
-        (form.action.empty() ? L"/webauth.do" : form.action) :
-        L"/webauth.do?" + parameter);
-}
-
-std::wstring BuildMobileLoginBody(const PortalForm& form,
-                                 const Credentials& credentials) {
-    std::wstring body;
-    bool user = false, password = false;
-    auto append = [&](std::wstring_view name, std::wstring_view value) {
-        if (!body.empty()) body += L"&";
-        body += EncodeEscapeDataString(name) + L"=" + EncodeEscapeDataString(value);
-    };
-    for (const auto& field : form.fields) {
-        if (field.disabled) continue;
-        const auto name = Lower(field.name);
-        if (name == L"userid" || name == L"username") {
-            append(field.name, credentials.username);
-            user = true;
-        } else if (name == L"passwd" || name == L"passwd1" || name == L"password") {
-            append(field.name, credentials.password);
-            password = password || name == L"passwd";
-        } else {
-            append(field.name, field.value);
-        }
-    }
-    if (!user) append(L"userId", credentials.username);
-    if (!password) append(L"passwd", credentials.password);
-    return body;
 }
